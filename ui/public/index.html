@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Proxio</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css"
+          integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+    <link rel="stylesheet" href="./main.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/vue"></script>
+
+</head>
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+
+        <div class="col-lg-6">
+            <table class="table table-striped" id="reqBox">
+                <tr v-for="req in requests">
+                    <td>{{ req.Id }}</td>
+                    <td>[{{ req.Request.Method }}]</td>
+                    <td>{{ req.Request.URI }}</td>
+                    <td>{{ req.Response && req.Response.Code}}</td>
+                    <td>{{ req.Time.TimeTaken}}</td>
+                </tr>
+            </table>
+
+        </div>
+        <div class="col-lg-6">
+
+        </div>
+    </div>
+</div>
+
+<script src="./main.js"></script>
+</body>
+</html>
