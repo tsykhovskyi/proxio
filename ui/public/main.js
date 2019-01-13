@@ -1,23 +1,32 @@
 var http = (function () {
-    function getJson(url, cbSuccess, cbError) {
+    function sendRequest(method, url, cbReadyState, dataType) {
+        dataType = 'undefined' === typeof dataType ? 'text' : dataType;
+
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', url, true);
-        xhr.responseType = 'json';
+        xhr.open(method, url, true);
+        xhr.responseType = dataType;
         xhr.onreadystatechange = function () {
             if (xhr.readyState == XMLHttpRequest.DONE) {
-                console.log(xhr.responseType);
-                if (xhr.responseType === 'json') {
-                    cbSuccess(xhr.response);
-                    delete xhr;
-                }
+                cbReadyState(xhr);
             }
         };
         xhr.send();
     }
 
+    function get(url, cbSuccess) {
+        sendRequest('GET', url, function(xhr) {
+            cbSuccess(xhr.response);
+        });
+    }
+
+    function getJson(url, cbSuccess, cbError) {
+        sendRequest('GET', url, function(xhr) {
+            cbSuccess(xhr.response);
+        }, 'json');
+    }
+
     function getJsonRecursively(url, cbSuccess, cbError) {
         getJson(url, function (data) {
-            console.log("recursive call");
             cbSuccess(data);
 
             getJsonRecursively(url, cbSuccess, cbError);
@@ -25,6 +34,7 @@ var http = (function () {
     }
 
     return {
+        get: get,
         getJson: getJson,
         getJsonRecursively: getJsonRecursively
     }
@@ -34,32 +44,66 @@ var storage = (function () {
     var messages = [];
 
     function add(m) {
-        messages.push(m);
+        for (i in messages) {
+            if (messages[i].Id === m.Id && m.Response !== null) {
+                messages[i] = m;
+                return
+            }
+        }
+
+        messages.unshift(m);
+    }
+
+    function removeAll() {
+        messages = []
+    }
+
+    function getMessages() {
+        return messages
     }
 
     return {
-        messages: messages,
-        add: add
+        getMessages: getMessages,
+        add: add,
+        removeAll: removeAll
     }
 })();
 
 (function (http, storage) {
+    var proxio = new Vue({
+        el: '#proxio',
+        data: {
+            messages: storage.getMessages(),
+            s: null // selected message
+        },
+        methods: {
+            activate: function (i, event) {
+                this.s = this.messages[i]
+            },
+            clear: function () {
+                let self = this;
+                http.get('/clear', function () {
+                    storage.removeAll();
+                    self.messages = storage.getMessages();
+                    self.$forceUpdate();
+                });
+            }
+        }
+    });
+
     http.getJson('/m', function (data) {
         data.forEach(function (message) {
-            storage.add(message)
+            storage.add(message);
+            proxio.messages = storage.getMessages();
+            proxio.$forceUpdate();
         })
     });
 
     http.getJsonRecursively("/check", function (data) {
         data.forEach(function (message) {
-            storage.add(message)
+            storage.add(message);
+            proxio.messages = storage.getMessages();
+            proxio.$forceUpdate();
         })
-    });
-
-    var reqBox = new Vue({
-        el: '#reqBox',
-        data: {
-            requests: storage.messages
-        }
     });
 })(http, storage);

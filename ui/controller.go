@@ -15,7 +15,7 @@ type Controller struct {
 	Storage      *proxy.Storage
 }
 
-func (c Controller) static(w http.ResponseWriter, r *http.Request) {
+func (c *Controller) static(w http.ResponseWriter, r *http.Request) {
 	publicDir := "ui/public"
 
 	fileName := filterURI(r.RequestURI)
@@ -39,7 +39,7 @@ func filterURI(uri string) string {
 	return uri
 }
 
-func (c Controller) allMessages(w http.ResponseWriter, r *http.Request) {
+func (c *Controller) allMessages(w http.ResponseWriter, r *http.Request) {
 	response := make([]*proxy.MessageContent, 0)
 
 	for _, m := range c.Storage.All() {
@@ -54,7 +54,7 @@ func (c Controller) allMessages(w http.ResponseWriter, r *http.Request) {
 	w.Write(payload)
 }
 
-func (c Controller) check(w http.ResponseWriter, r *http.Request) {
+func (c *Controller) check(w http.ResponseWriter, r *http.Request) {
 	response := make([]*proxy.MessageContent, 0)
 	done := make(chan bool)
 
@@ -79,4 +79,8 @@ func (c Controller) check(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write(payload)
+}
+
+func (c *Controller) clear(w http.ResponseWriter, r *http.Request) {
+	c.Storage.RemoveAll()
 }

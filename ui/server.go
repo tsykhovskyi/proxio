@@ -21,6 +21,7 @@ type server struct {
 func (s server) Serve() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/check", s.ctr.check)
+	mux.HandleFunc("/clear", s.ctr.clear)
 	mux.HandleFunc("/m", s.ctr.allMessages)
 	mux.HandleFunc("/", s.ctr.static)
 
