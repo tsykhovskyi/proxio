@@ -50,8 +50,20 @@ var storage = (function () {
                 return
             }
         }
+        messages.push(m);
+    }
 
-        messages.unshift(m);
+    function sortMessagesByCreated() {
+        console.log("sorted");
+        messages = messages.sort(function (a, b) {
+            if (a.Time.StartedAt < b.Time.StartedAt) {
+                return 1
+            }
+            if (a.Time.StartedAt > b.Time.StartedAt) {
+                return -1
+            }
+            return 0
+        })
     }
 
     function removeAll() {
@@ -59,7 +71,8 @@ var storage = (function () {
     }
 
     function getMessages() {
-        return messages
+        sortMessagesByCreated();
+        return messages;
     }
 
     return {
@@ -73,7 +86,7 @@ var storage = (function () {
     var proxio = new Vue({
         el: '#proxio',
         data: {
-            messages: storage.getMessages(),
+            messages: [],
             s: null // selected message
         },
         methods: {

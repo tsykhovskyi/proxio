@@ -21,6 +21,7 @@
             </h4>
             <table class="table table-striped">
                 <tr v-for="m, i in messages" v-on:click="activate(i, $event)">
+                    <td>{{ m.Id }}</td>
                     <td>{{ m.Request.Method }} {{ m.Request.URI }}</td>
                     <td>{{ m.Response && m.Response.Code}}</td>
                     <td>{{ m.Time.TimeTaken}}</td>
