@@ -16,7 +16,7 @@ type Controller struct {
 }
 
 func (c *Controller) static(w http.ResponseWriter, r *http.Request) {
-	publicDir := "ui/public"
+	publicDir := "ui/web"
 
 	fileName := filterURI(r.RequestURI)
 
@@ -26,7 +26,7 @@ func (c *Controller) static(w http.ResponseWriter, r *http.Request) {
 
 	io, err := ioutil.ReadFile(publicDir + fileName)
 	if err != nil {
-		http.Error(w, "Unable to serve "+fileName, 500)
+		http.Error(w, "File not found: "+fileName, 404)
 	}
 
 	w.Write(io)
