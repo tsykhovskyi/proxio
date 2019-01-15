@@ -2,7 +2,6 @@ package ui
 
 import (
 	"errors"
-	"fmt"
 	"math/rand"
 	"proxio/proxy"
 	"strconv"
@@ -23,8 +22,6 @@ type Pool struct {
 func (p Pool) NewConnection(RequestId string) (*Connection, error) {
 	id, err := strconv.Atoi(RequestId)
 	if err == nil {
-		fmt.Println("Parsed id:", id)
-		fmt.Println("connections:", p.Connections)
 		if conn, exist := p.Connections[id]; exist {
 			return conn, nil
 		}
@@ -36,7 +33,6 @@ func (p Pool) NewConnection(RequestId string) (*Connection, error) {
 		Messages: make(chan *proxy.Message, 10),
 	}
 	p.Connections[conn.Id] = conn
-	fmt.Println("Connection pool length: ", len(p.Connections))
 	return conn, nil
 }
 

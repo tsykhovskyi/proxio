@@ -86,6 +86,7 @@ func (c *Controller) check(w http.ResponseWriter, r *http.Request) {
 		case m := <-connection.Messages:
 			messages = append(messages, m)
 		case <-ctx.Done():
+			c.ConnectionPool.CloseConnection(connection)
 			return
 		}
 	}
