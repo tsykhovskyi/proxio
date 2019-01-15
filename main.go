@@ -4,34 +4,18 @@ import (
 	"fmt"
 	"proxio/proxy"
 	"proxio/ui"
-	"strconv"
 )
 
 func main() {
-	target := "http://localhost:8000"
-	var local int = 8001
-	var uiPort int = 4001
+	var targetUrl = "http://localhost:8000"
+	var proxyPortAccept = ":8001"
+	var uiUrl = "http://127.0.0.1:4001"
 
-	stor := proxy.NewStorage()
-	p := proxy.NewProxy(local, target, stor)
-	go p.Serve()
+	messagesChannel := proxy.ListenAndServe(proxyPortAccept, targetUrl)
+	ui.Serve(uiUrl, messagesChannel)
 
-	ctr := &ui.Controller{p.Messages, p.Storage}
-	server := ui.NewServer(uiPort, ctr)
-	server.Serve()
-
-	fmt.Printf("Forwarding: %s\t->\t%s\n", "localhost:"+strconv.Itoa(local), target)
-	fmt.Printf("Web interface: %s\n\n", "http://localhost:"+strconv.Itoa(uiPort))
+	fmt.Printf("Forwarding: %s\t->\t%s\n", proxyPortAccept, targetUrl)
+	fmt.Printf("Web interface: %s\n\n", uiUrl)
 
 	select {}
-}
-
-func listenMessages(messages chan *proxy.Message) {
-	for m := range messages {
-		if m.HasResponse() {
-			fmt.Printf("%d:\t[%s]\t%-20s%d\n", m.Id, m.Request.Method, m.Request.RequestURI, m.Response.StatusCode)
-		} else {
-			fmt.Printf("%d:\t[%s]\t%-20s\n", m.Id, m.Request.Method, m.Request.RequestURI)
-		}
-	}
 }

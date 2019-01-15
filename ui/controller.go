@@ -7,12 +7,27 @@ import (
 	"net/http"
 	"proxio/proxy"
 	"regexp"
-	"time"
 )
 
+func NewController() *Controller {
+	return &Controller{
+		Storage:        NewStorage(),
+		ConnectionPool: NewConnectionPool(),
+	}
+}
+
 type Controller struct {
-	MessagesChan chan *proxy.Message
-	Storage      *proxy.Storage
+	Storage        *Storage
+	ConnectionPool *Pool
+}
+
+func (c *Controller) listenMessages(messagesChan chan *proxy.Message) {
+	go func() {
+		for m := range messagesChan {
+			c.Storage.Add(m)
+			c.ConnectionPool.BroadcastMessage(m)
+		}
+	}()
 }
 
 func (c *Controller) static(w http.ResponseWriter, r *http.Request) {
@@ -55,29 +70,36 @@ func (c *Controller) allMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) check(w http.ResponseWriter, r *http.Request) {
-	response := make([]*proxy.MessageContent, 0)
-	done := make(chan bool)
+	const RequestIdHeader = "Requests-Identifier"
+	requestId := r.Header.Get(RequestIdHeader)
+	connection, err := c.ConnectionPool.NewConnection(requestId)
+	if err != nil {
+		w.WriteHeader(404)
+		w.Write([]byte("Your connection was closed or not found"))
+		return
+	}
 
-	go func() {
-		for {
-			select {
-			case m := <-c.MessagesChan:
-				response = append(response, m.GetContext())
-			case <-time.After(time.Millisecond):
-				if len(response) > 0 {
-					done <- true
-					return
-				}
-			}
+	messages := connection.PullBufferedMessages()
+	if messages == nil {
+		ctx := r.Context()
+		select {
+		case m := <-connection.Messages:
+			messages = append(messages, m)
+		case <-ctx.Done():
+			return
 		}
-	}()
-	<-done
+	}
 
+	var response []*proxy.MessageContent
+	for _, message := range messages {
+		response = append(response, message.GetContext())
+	}
 	payload, err := json.Marshal(response)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error on message reading: %s", err), 500)
 	}
 
+	w.Header().Add(RequestIdHeader, connection.GetId())
 	w.Write(payload)
 }
 

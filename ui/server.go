@@ -1,31 +1,29 @@
 package ui
 
 import (
+	"fmt"
 	"net/http"
-	"strconv"
+	"net/url"
+	"proxio/proxy"
 )
 
-func NewServer(port int, controller *Controller) *server {
-	return &server{
-		port: port,
-		ctr:  controller,
+func Serve(local string, messagesChan chan *proxy.Message) {
+	localUrl, err := url.Parse(local)
+	if err != nil {
+		panic(fmt.Sprintf("Unable to parse url: %s", err))
 	}
-}
 
-type server struct {
-	port int
-	ctr  *Controller
-	srv  *http.Server
-}
+	ctr := NewController()
 
-func (s server) Serve() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/check", s.ctr.check)
-	mux.HandleFunc("/clear", s.ctr.clear)
-	mux.HandleFunc("/m", s.ctr.allMessages)
-	mux.HandleFunc("/", s.ctr.static)
+	mux.HandleFunc("/check", ctr.check)
+	mux.HandleFunc("/clear", ctr.clear)
+	mux.HandleFunc("/m", ctr.allMessages)
+	mux.HandleFunc("/", ctr.static)
+
+	go ctr.listenMessages(messagesChan)
 
 	go func() {
-		panic(http.ListenAndServe(":"+strconv.Itoa(s.port), mux))
+		panic(http.ListenAndServe(localUrl.Host, mux))
 	}()
 }

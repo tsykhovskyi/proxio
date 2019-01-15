@@ -8,52 +8,58 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strconv"
 )
 
 var (
 	messageCounter int = 0
 )
 
-func NewProxy(localPort int, target string, storage *Storage) *Proxy {
-	dest, err := url.Parse(target)
+func ListenAndServe(proxyPortAccept string, target string) chan *Message {
+	proxy := New(proxyPortAccept, target)
+	return proxy.Serve()
+}
+
+func New(localPort string, target string) *Proxy {
+	targetUrl, err := url.Parse(target)
 	if err != nil {
 		panic("invalid target url")
 	}
 
 	return &Proxy{
 		localPort,
-		dest,
-		make(chan *Message, 10),
-		storage,
+		targetUrl,
+		make(chan *Message, 1),
 	}
 }
 
 type Proxy struct {
-	localPort int
-	dest      *url.URL
-	Messages  chan *Message
-	Storage   *Storage
+	localPort string
+	target    *url.URL
+	messages  chan *Message
 }
 
-func (p *Proxy) Serve() {
-	hostListener, err := net.Listen("tcp", ":"+strconv.Itoa(p.localPort))
-	if err != nil {
-		panic(fmt.Sprintf("proxy lister error: %s", err))
-	}
+func (p *Proxy) Serve() chan *Message {
+	go func() {
+		hostListener, err := net.Listen("tcp", p.localPort)
+		if err != nil {
+			panic(fmt.Sprintf("proxy lister error: %s", err))
+		}
 
-	proxy := httputil.NewSingleHostReverseProxy(p.dest)
-	proxy.Transport = &transport{p, http.DefaultTransport}
+		proxy := httputil.NewSingleHostReverseProxy(p.target)
+		proxy.Transport = &transport{p, http.DefaultTransport}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		proxy.ServeHTTP(w, r)
-	})
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			proxy.ServeHTTP(w, r)
+		})
 
-	srv := &http.Server{}
-	err = srv.Serve(hostListener)
-	if err != nil {
-		panic(fmt.Sprintf("unable to serve proxy: %s\n", err))
-	}
+		srv := &http.Server{}
+		err = srv.Serve(hostListener)
+		if err != nil {
+			panic(fmt.Sprintf("unable to serve proxy: %s\n", err))
+		}
+	}()
+
+	return p.messages
 }
 
 type transport struct {
@@ -91,9 +97,8 @@ func (t transport) RoundTrip(req *http.Request) (resp *http.Response, err error)
 }
 
 func (p *Proxy) handleMessageUpdate(message *Message) {
-	if len(p.Messages) == cap(p.Messages) && len(p.Messages) > 0 {
-		<-p.Messages
+	if len(p.messages) == cap(p.messages) && len(p.messages) > 0 {
+		<-p.messages
 	}
-	p.Messages <- message
-	p.Storage.Add(message)
+	p.messages <- message
 }
