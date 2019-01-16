@@ -3,7 +3,6 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"proxio/proxy"
 	"regexp"
@@ -31,20 +30,13 @@ func (c *Controller) listenMessages(messagesChan chan *proxy.Message) {
 }
 
 func (c *Controller) static(w http.ResponseWriter, r *http.Request) {
-	publicDir := "ui/web"
-
 	fileName := filterURI(r.RequestURI)
 
 	if fileName == "/" {
 		fileName = "/index.html"
 	}
 
-	io, err := ioutil.ReadFile(publicDir + fileName)
-	if err != nil {
-		http.Error(w, "File not found: "+fileName, 404)
-	}
-
-	w.Write(io)
+	http.ServeFile(w, r, "ui/web"+fileName)
 }
 
 func filterURI(uri string) string {
