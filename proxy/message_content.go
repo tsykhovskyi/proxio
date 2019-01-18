@@ -16,12 +16,14 @@ type Time struct {
 }
 
 type Request struct {
-	Method string
-	URI    string
+	Method  string
+	URI     string
+	Headers map[string][]string
 }
 type Response struct {
-	Code int
-	Body string
+	Code    int
+	Body    string
+	Headers map[string][]string
 }
 
 func BuildContent(m *Message) *MessageContent {
@@ -36,6 +38,7 @@ func BuildContent(m *Message) *MessageContent {
 	c.Request = &Request{
 		req.Method,
 		req.RequestURI,
+		req.Header,
 	}
 	if res != nil {
 		c.Time.FinishedAt = m.FinishedAt.Format(time.RFC3339)
@@ -44,6 +47,7 @@ func BuildContent(m *Message) *MessageContent {
 		c.Response = &Response{
 			res.StatusCode,
 			string(m.ResponseBody),
+			res.Header,
 		}
 	}
 

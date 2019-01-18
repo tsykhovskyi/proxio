@@ -20,7 +20,6 @@ func Serve(local string, messagesChan chan *proxy.Message) {
 		for m := range messagesChan {
 			storage.Add(m)
 			connectionPool.BroadcastMessage(m.GetContext())
-			fmt.Println("New message", len(connectionPool.Connections))
 		}
 	}()
 
@@ -32,7 +31,6 @@ func Serve(local string, messagesChan chan *proxy.Message) {
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		conn := serveWs(w, r)
 		connectionPool.NewConnection(conn)
-		fmt.Println("New connection", len(connectionPool.Connections))
 	})
 	go func() {
 		panic(http.ListenAndServe(localUrl.Host, mux))
