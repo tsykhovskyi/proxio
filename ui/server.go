@@ -13,16 +13,27 @@ func Serve(local string, messagesChan chan *proxy.Message) {
 		panic(fmt.Sprintf("Unable to parse url: %s", err))
 	}
 
-	ctr := NewController()
+	connectionPool := NewConnectionPool()
+	storage := NewStorage()
 
+	go func() {
+		for m := range messagesChan {
+			storage.Add(m)
+			connectionPool.BroadcastMessage(m.GetContext())
+			fmt.Println("New message", len(connectionPool.Connections))
+		}
+	}()
+
+	ctr := NewController(storage)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/check", ctr.check)
 	mux.HandleFunc("/clear", ctr.clear)
 	mux.HandleFunc("/m", ctr.allMessages)
 	mux.HandleFunc("/", ctr.static)
-
-	go ctr.listenMessages(messagesChan)
-
+	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		conn := serveWs(w, r)
+		connectionPool.NewConnection(conn)
+		fmt.Println("New connection", len(connectionPool.Connections))
+	})
 	go func() {
 		panic(http.ListenAndServe(localUrl.Host, mux))
 	}()

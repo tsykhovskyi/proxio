@@ -69,11 +69,9 @@
                     })
                 });
 
-                $http.getJsonRecursively("/check", function (data) {
-                    data.forEach(function (message) {
-                        $storage.add(message);
-                        self.messages = $storage.getMessages();
-                    })
+                $http.wsJSON('ws', function (data) {
+                    $storage.add(data);
+                    self.messages = $storage.getMessages();
                 });
             },
             methods: {

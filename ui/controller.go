@@ -8,25 +8,14 @@ import (
 	"regexp"
 )
 
-func NewController() *Controller {
+func NewController(storage *Storage) *Controller {
 	return &Controller{
-		Storage:        NewStorage(),
-		ConnectionPool: NewConnectionPool(),
+		Storage: storage,
 	}
 }
 
 type Controller struct {
-	Storage        *Storage
-	ConnectionPool *Pool
-}
-
-func (c *Controller) listenMessages(messagesChan chan *proxy.Message) {
-	go func() {
-		for m := range messagesChan {
-			c.Storage.Add(m)
-			c.ConnectionPool.BroadcastMessage(m)
-		}
-	}()
+	Storage *Storage
 }
 
 func (c *Controller) static(w http.ResponseWriter, r *http.Request) {
@@ -58,41 +47,6 @@ func (c *Controller) allMessages(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Error on message reading: %s", err), 500)
 	}
 
-	w.Write(payload)
-}
-
-func (c *Controller) check(w http.ResponseWriter, r *http.Request) {
-	const RequestIdHeader = "Requests-Identifier"
-	requestId := r.Header.Get(RequestIdHeader)
-	connection, err := c.ConnectionPool.NewConnection(requestId)
-	if err != nil {
-		w.WriteHeader(404)
-		w.Write([]byte("Your connection was closed or not found"))
-		return
-	}
-
-	messages := connection.PullBufferedMessages()
-	if messages == nil {
-		ctx := r.Context()
-		select {
-		case m := <-connection.Messages:
-			messages = append(messages, m)
-		case <-ctx.Done():
-			c.ConnectionPool.CloseConnection(connection)
-			return
-		}
-	}
-
-	var response []*proxy.MessageContent
-	for _, message := range messages {
-		response = append(response, message.GetContext())
-	}
-	payload, err := json.Marshal(response)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error on message reading: %s", err), 500)
-	}
-
-	w.Header().Add(RequestIdHeader, connection.GetId())
 	w.Write(payload)
 }
 

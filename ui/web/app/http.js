@@ -27,13 +27,13 @@ define(function () {
     }
 
     function get(url, cbSuccess) {
-        sendRequest('GET', url, function(xhr) {
+        sendRequest('GET', url, function (xhr) {
             cbSuccess(xhr.response);
         });
     }
 
     function getJson(url, cbSuccess, cbError) {
-        sendRequest('GET', url, function(xhr) {
+        sendRequest('GET', url, function (xhr) {
             cbSuccess(xhr.response);
         }, 'json');
     }
@@ -46,9 +46,32 @@ define(function () {
         }, cbError)
     }
 
+    function ws(uri, cbFrameRecieved) {
+        var loc = window.location, new_uri;
+        new_uri = "ws://" + loc.host + loc.pathname + uri;
+        var socket = new WebSocket(new_uri);
+        // Connection opened
+        socket.addEventListener('open', function (event) {
+            // socket.send(event);
+        });
+
+        // Listen for messages
+        socket.addEventListener('message', function (event) {
+            cbFrameRecieved(event)
+        });
+
+        return socket
+    }
+
+    function wsJSON(uri, cbDataRecieved) {
+        return ws(uri, function (event) {
+            cbDataRecieved(JSON.parse(event.data));
+        })
+    }
+
     return {
         get: get,
         getJson: getJson,
-        getJsonRecursively: getJsonRecursively
+        wsJSON: wsJSON,
     }
 });
