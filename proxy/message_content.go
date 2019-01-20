@@ -18,6 +18,7 @@ type Time struct {
 type Request struct {
 	Method  string
 	URI     string
+	Body    string
 	Headers map[string][]string
 }
 type Response struct {
@@ -38,6 +39,7 @@ func BuildContent(m *Message) *MessageContent {
 	c.Request = &Request{
 		req.Method,
 		req.RequestURI,
+		string(m.RequestBody),
 		req.Header,
 	}
 	if res != nil {

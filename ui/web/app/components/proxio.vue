@@ -1,49 +1,32 @@
 <template>
     <div class="container-fluid">
         <div class="row">
-            <div class="col-lg-6">
-                <h4>
-                    Requests ({{messages.length}})
-                    <button class="btn btn-default pull-right" v-on:click="clear()">Clear</button>
-                </h4>
-                <table class="table table-striped">
-                    <tr v-for="m, i in messages" v-on:click="activate(i, $event)">
-                        <td>{{ m.Id }}</td>
+            <div class="col-lg-5">
+                <div class="row">
+                    <div class="col">
+                        <h4>
+                            Requests ({{messages.length}})
+                        </h4>
+                    </div>
+                    <div class="col text-right">
+                        <button class="btn btn-primary" v-on:click="clear()">Clear</button>
+                    </div>
+                </div>
+                <table class="table table-hover requests">
+                    <tbody>
+                    <tr v-for="m,i in messages"
+                        v-on:click="activate(i, $event)"
+                        v-bind:class="{'table-active': isActive(i)}"
+                    >
                         <td>{{ m.Request.Method }} {{ m.Request.URI }}</td>
                         <td>{{ m.Response && m.Response.Code}}</td>
                         <td>{{ m.Time.TimeTaken}}</td>
                     </tr>
+                    </tbody>
                 </table>
             </div>
-            <div class="col-lg-6">
-                <div v-if="s">
-                    <div class="card">
-                        <div class="card-header">
-                            {{ s.Request.Method }} {{ s.Request.URI }}
-                        </div>
-                        <div class="card-body">
-                            <ul class="nav nav-tabs">
-                                <li class="nav-item">
-                                    <a class="nav-link" href="#">Pretty</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link active" href="#">Body</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="#">Headers</a>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div class="card" v-if="s.Response">
-                        <div class="card-header">
-                            Response
-                        </div>
-                        <div class="card-body">
-                            {{ s.Response.Body }}
-                        </div>
-                    </div>
-                </div>
+            <div class="col-lg-7">
+                <message v-bind:message="selected"></message>
             </div>
         </div>
     </div>
@@ -56,7 +39,7 @@
             data: function () {
                 return {
                     messages: $storage.getMessages(),
-                    s: null // selected message
+                    selected: null // selected message
                 }
             },
             created: function () {
@@ -66,6 +49,7 @@
                     data.forEach(function (message) {
                         $storage.add(message);
                         self.messages = $storage.getMessages();
+                        self.selected = self.messages.count === 0 ? null : self.messages[0];
                     })
                 });
 
@@ -75,8 +59,11 @@
                 });
             },
             methods: {
-                activate: function (i, event) {
-                    this.s = this.messages[i]
+                activate: function (i) {
+                    this.selected = this.messages[i]
+                },
+                isActive: function(i) {
+                    return this.selected === this.messages[i]
                 },
                 clear: function () {
                     let self = this;
@@ -89,3 +76,9 @@
         });
     });
 </script>
+
+<style scoped>
+    .requests tr {
+        cursor: pointer;
+    }
+</style>

@@ -70,6 +70,17 @@ type transport struct {
 func (t transport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	message := newMessage(req)
 
+	if nil != req.Body {
+		bodyBytes, err := ioutil.ReadAll(req.Body)
+		req.Body.Close()
+		if err != nil {
+			fmt.Println("Error reading request stream", err.Error())
+			return resp, err
+		}
+		message.RequestBody = bodyBytes
+		req.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+	}
+
 	t.Proxy.handleMessageUpdate(message)
 
 	resp, err = t.RoundTripper.RoundTrip(req)
@@ -83,10 +94,9 @@ func (t transport) RoundTrip(req *http.Request) (resp *http.Response, err error)
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
-		fmt.Println("Error reading stream", err.Error())
+		fmt.Println("Error reading response stream", err.Error())
 		return resp, err
 	}
-
 	message.ResponseBody = bodyBytes
 	resp.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 

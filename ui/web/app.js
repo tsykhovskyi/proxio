@@ -12,7 +12,13 @@ requirejs.config({
     }
 });
 
-require(["Vue", "vue!components/proxio"], function(Vue){
+require([
+    "Vue",
+    "vue!components/proxio",
+    "vue!components/message",
+    "vue!components/message/headers",
+    "vue!components/message/preview"
+], function (Vue) {
     new Vue({
         el: "#app",
         template: "<proxio></proxio>"

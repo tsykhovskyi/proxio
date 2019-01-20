@@ -18,6 +18,7 @@ func newMessage(req *http.Request) *Message {
 type Message struct {
 	Id           int
 	Request      *http.Request
+	RequestBody  []byte
 	Response     *http.Response
 	ResponseBody []byte
 	StartedAt    time.Time
