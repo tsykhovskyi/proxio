@@ -3,7 +3,7 @@ define(function () {
 
     function add(m) {
         for (i in messages) {
-            if (messages[i].Id === m.Id && m.Response !== null) {
+            if (messages[i].Id === m.Id) {
                 messages[i] = m;
                 return
             }

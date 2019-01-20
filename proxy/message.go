@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+const (
+	statusFinished = iota
+	statusCancelled
+)
+
 func newMessage(req *http.Request) *Message {
 	messageCounter++
 	return &Message{
@@ -17,12 +22,17 @@ func newMessage(req *http.Request) *Message {
 
 type Message struct {
 	Id           int
+	Status       int
 	Request      *http.Request
 	RequestBody  []byte
 	Response     *http.Response
 	ResponseBody []byte
 	StartedAt    time.Time
 	FinishedAt   time.Time
+}
+
+func (m *Message) Cancel() {
+	m.Status = statusCancelled
 }
 
 func (m *Message) HasResponse() bool {

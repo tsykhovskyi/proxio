@@ -16,7 +16,7 @@
                     <tbody>
                     <tr v-for="m,i in messages"
                         v-on:click="activate(i, $event)"
-                        v-bind:class="{'table-active': isActive(i)}"
+                        v-bind:class="{'table-active': isActive(i), 'table-danger': isMessageCancel(m)}"
                     >
                         <td>{{ m.Request.Method }} {{ m.Request.URI }}</td>
                         <td>{{ m.Response && m.Response.Code}}</td>
@@ -64,6 +64,9 @@
                 },
                 isActive: function(i) {
                     return this.selected === this.messages[i]
+                },
+                isMessageCancel: function (message) {
+                    return 1 === message.Status;
                 },
                 clear: function () {
                     let self = this;

@@ -85,7 +85,8 @@ func (t transport) RoundTrip(req *http.Request) (resp *http.Response, err error)
 
 	resp, err = t.RoundTripper.RoundTrip(req)
 	if err != nil {
-		fmt.Println("Request cancelled", err.Error())
+		message.Cancel()
+		t.Proxy.handleMessageUpdate(message)
 		return resp, err
 	}
 

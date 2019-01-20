@@ -4,6 +4,7 @@ import "time"
 
 type MessageContent struct {
 	Id       int
+	Status   int
 	Time     *Time
 	Request  *Request
 	Response *Response
@@ -33,6 +34,7 @@ func BuildContent(m *Message) *MessageContent {
 
 	c := &MessageContent{}
 	c.Id = m.Id
+	c.Status = m.Status
 	c.Time = &Time{
 		StartedAt: m.StartedAt.Format(time.RFC3339),
 	}
