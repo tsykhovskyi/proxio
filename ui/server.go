@@ -29,8 +29,8 @@ func Serve(local string, messagesChan chan *proxy.Message) {
 	mux.HandleFunc("/m", ctr.allMessages)
 	mux.HandleFunc("/", ctr.static)
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		conn := serveWs(w, r)
-		connectionPool.NewConnection(conn)
+		connection := serveWs(w, r, connectionPool.closeChan)
+		connectionPool.NewConnection(connection)
 	})
 	go func() {
 		panic(http.ListenAndServe(localUrl.Host, mux))

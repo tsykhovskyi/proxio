@@ -10,8 +10,9 @@ import (
 )
 
 type Connection struct {
-	conn     net.Conn
-	messages chan *proxy.MessageContent
+	conn      net.Conn
+	messages  chan *proxy.MessageContent
+	closeChan chan bool
 }
 
 func (c *Connection) Send(m *proxy.MessageContent) error {
@@ -27,11 +28,13 @@ func (c *Connection) Send(m *proxy.MessageContent) error {
 	return nil
 }
 
-func serveWs(w http.ResponseWriter, r *http.Request) *Connection {
+func serveWs(w http.ResponseWriter, r *http.Request, closeChannel chan *Connection) *Connection {
 	conn, _, _, err := ws.UpgradeHTTP(r, w)
 	if err != nil {
 		fmt.Println("Server doesn't support ws")
 	}
+
+	connection := &Connection{conn, make(chan *proxy.MessageContent), make(chan bool, 1)}
 
 	go func() {
 		defer conn.Close()
@@ -39,9 +42,10 @@ func serveWs(w http.ResponseWriter, r *http.Request) *Connection {
 		for {
 			frame := ws.MustReadFrame(conn)
 			if frame.Header.OpCode == ws.OpClose {
+				closeChannel <- connection
 				return
 			}
 		}
 	}()
-	return &Connection{conn, make(chan *proxy.MessageContent)}
+	return connection
 }
