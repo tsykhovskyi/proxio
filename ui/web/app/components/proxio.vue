@@ -20,7 +20,9 @@
                     >
                         <td>{{ m.Request.Method }} {{ m.Request.URI }}</td>
                         <td>{{ m.Response && m.Response.Code}}</td>
-                        <td>{{ m.Time.TimeTaken}}</td>
+                        <td>
+                            <span v-if="m.Time.TimeTaken > 0">{{ m.Time.TimeTaken | readableTime}}</span>
+                        </td>
                     </tr>
                     </tbody>
                 </table>
@@ -74,6 +76,17 @@
                         $storage.removeAll();
                         self.messages = $storage.getMessages();
                     });
+                }
+            },
+            filters: {
+                readableTime: function (value) {
+                    var result;
+                    if (value * 1000 < 1) {
+                        result = (value * 1000).toFixed(3) + ' ms';
+                    } else {
+                        result = value.toFixed(3) + ' s';
+                    }
+                    return result;
                 }
             }
         });
