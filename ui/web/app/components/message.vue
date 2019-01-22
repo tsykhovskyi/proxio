@@ -18,13 +18,20 @@
                 </ul>
                 <div class="tab-content">
                     <div class="tab-pane" v-bind:class="{'active': isReqTab(1)}">
-
+                        <message-preview
+                                v-bind:headers="message.Request.Headers"
+                                v-bind:body="message.Request.Body"
+                                v-bind:i="message.Id"
+                        ></message-preview>
                     </div>
                     <div class="tab-pane" v-bind:class="{'active': isReqTab(2)}">
                         <pre>{{ message.Request.Body }}</pre>
                     </div>
                     <div class="tab-pane" v-bind:class="{'active': isReqTab(3)}">
-                        <message-headers v-if="message.Request.Headers" v-bind:headers="message.Request.Headers"></message-headers>
+                        <message-headers
+                                v-if="message.Request.Headers"
+                                v-bind:headers="message.Request.Headers"
+                        ></message-headers>
                     </div>
                 </div>
             </div>
@@ -47,13 +54,17 @@
                 </ul>
                 <div class="tab-content">
                     <div class="tab-pane" v-bind:class="{'active': isResTab(1)}">
-
+                        <message-preview
+                                v-bind:headers="message.Response.Headers"
+                                v-bind:body="message.Response.Body"
+                        ></message-preview>
                     </div>
                     <div class="tab-pane" v-bind:class="{'active': isResTab(2)}">
                         <pre>{{ message.Response.Body }}</pre>
                     </div>
                     <div class="tab-pane" v-bind:class="{'active': isResTab(3)}">
-                        <message-headers v-if="message.Response.Headers" v-bind:headers="message.Response.Headers"></message-headers>
+                        <message-headers v-if="message.Response.Headers"
+                                         v-bind:headers="message.Response.Headers"></message-headers>
                     </div>
                 </div>
             </div>
