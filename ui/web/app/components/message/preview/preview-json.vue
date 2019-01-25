@@ -26,7 +26,6 @@
                 parseContent: function () {
                     var content = this.content;
                     var json = JSON.parse(content);
-                    console.log(json);
 
                     this.json = json;
                 },

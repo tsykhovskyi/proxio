@@ -67,7 +67,6 @@
                 },
                 collapse: function () {
                     this.isCollapsed = !this.isCollapsed;
-                    console.log('coll', this.isCollapsed);
                 },
                 getLastKey: function(obj) {
                     if (Array.isArray(obj)) {

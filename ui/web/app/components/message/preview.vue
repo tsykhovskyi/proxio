@@ -28,7 +28,6 @@
             },
             methods: {
                 detectContent: function () {
-                    console.log(i);
                     if ('object' === typeof this.headers['Content-Type']) {
                         var type = this.headers['Content-Type'][0],
                             rHtml = /text\/html/,
