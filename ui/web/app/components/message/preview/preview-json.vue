@@ -1,6 +1,6 @@
 <template>
     <div class="json-preview-box">
-        <preview-json-node v-bind:node="json"></preview-json-node>
+        <preview-json-node v-bind:node="json" v-bind:hovered-blocks="[]"></preview-json-node>
     </div>
 </template>
 
@@ -36,5 +36,7 @@
 </script>
 
 <style scoped>
-
+    .json-preview-box > div {
+        margin: 0 !important;
+    }
 </style>
