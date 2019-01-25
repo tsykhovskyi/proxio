@@ -139,8 +139,8 @@
 <style scoped>
     .node {
         margin-left: 30px;
-        transition: background-color 0.3s ease-in;
-        transition-delay: 0.3s;
+        /*transition: background-color 0.3s ease-in;*/
+        /*transition-delay: 0.3s;*/
     }
     .scalar.number {
         color: darkblue;
