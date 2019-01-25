@@ -1,21 +1,22 @@
 <template>
     <div class="node" @mouseenter="mouseEntered()" @mouseleave="mouseLeft()" v-bind:class="{hovered: isHover}">
+        <span class="collapser" v-if="isNode()" v-on:click="collapse()">{{ isCollapsed?'-':'+' }}</span>
         <div class="top">
             <span v-if="hasKey()"><span class="property">"{{ propertyName }}</span>":</span>
+
             <span v-if="isArray()">[</span>
-            <span v-if="isNode()">{</span>
+            <span v-if="isObject()">{</span>
+            <span v-if="isCollapsed" class="collapsed-block"><span v-on:click="collapse()">...</span> {{ getClosedString() }}</span>
+
             <span v-if="isScalar(node)" class="scalar" v-bind:class="getScalarType(node)">
                 {{ node | formatScalar }}<span v-if="lastProp === false">,</span>
             </span>
         </div>
-        <div class="node-struct" v-if="isNode() || isArray()" >
+        <div class="node-struct" v-if="isNode()" v-bind:class="{hidden: isCollapsed}">
             <div class="elem" v-for="(elem, index) in node">
                 <preview-json-node  v-bind:property-name="index" v-bind:node="elem" v-bind:level="getNextLevel()" v-bind:last-prop="index === getLastKey(node)"></preview-json-node>
             </div>
-
-            <span v-if="isArray()">]</span>
-            <span v-if="isNode()">}</span>
-            <span v-if="lastProp === false">,</span>
+            <span>{{ getClosedString() }}</span>
         </div>
     </div>
 </template>
@@ -24,7 +25,7 @@
     define(['Vue'], function (Vue) {
         Vue.component('preview-json-node', {
             template: template,
-            props: ['propertyName', 'node', 'level', 'lastProp', 'hovered-blocks'],
+            props: ['propertyName', 'node', 'level', 'lastProp'],
             filters: {
                 formatScalar: function (val) {
                     switch (typeof val) {
@@ -47,7 +48,8 @@
             data: function () {
                 return {
                     selectedBlocks: null,
-                    isHover: false
+                    isHover: false,
+                    isCollapsed: false
                 }
             },
             watch: {
@@ -63,6 +65,10 @@
                 mouseLeft: function () {
                     this.selectedBlocks.pop();
                 },
+                collapse: function () {
+                    this.isCollapsed = !this.isCollapsed;
+                    console.log('coll', this.isCollapsed);
+                },
                 getLastKey: function(obj) {
                     if (Array.isArray(obj)) {
                         return obj.length - 1;
@@ -70,14 +76,25 @@
                     var keys = Object.keys(obj);
                     return keys[keys.length - 1];
                 },
+                getClosedString: function (obj) {
+                    var str = "";
+                    if (this.isArray()) {
+                        str = "]"
+                    } else if (this.isObject()) {
+                        str = "}"
+                    } else {
+                        return "";
+                    }
+                    if (this.lastProp === false) {
+                        str += ',';
+                    }
+                    return str;
+                },
                 getNextLevel: function() {
                     if (!this.level) {
                         return 1;
                     }
                     return parseInt(this.level) + 1;
-                },
-                getShift: function () {
-                    return (this.level * 20) + 'px';
                 },
                 hasKey: function () {
                     if ("number" === typeof this.propertyName) {
@@ -88,10 +105,13 @@
                     }
                     return null !== this.propertyName;
                 },
+                isNode: function () {
+                    return this.isArray() || this.isObject();
+                },
                 isArray: function () {
                     return Array.isArray(this.node)
                 },
-                isNode: function () {
+                isObject: function () {
                     return false === Array.isArray(this.node) && 'object' === typeof this.node && null !== this.node;
                 },
                 isScalar: function (val) {
@@ -120,6 +140,7 @@
     .node {
         margin-left: 30px;
         transition: background-color 0.3s ease-in;
+        transition-delay: 0.3s;
     }
     .scalar.number {
         color: darkblue;
@@ -133,7 +154,18 @@
     .scalar.null {
         color: red;
     }
-    .hovered {
+    .node.hovered {
         background-color: rgba(235, 238, 249, 1);
+    }
+    .collapser {
+        position: absolute;
+        margin-left: -1em;
+        cursor: pointer;
+    }
+    .hidden {
+        display: none;
+    }
+    .collapsed-block {
+        cursor: pointer;
     }
 </style>
