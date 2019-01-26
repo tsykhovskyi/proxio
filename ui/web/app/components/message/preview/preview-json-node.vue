@@ -163,7 +163,9 @@
     .scalar.number {
         color: darkblue;
     }
-
+    .property {
+        white-space: nowrap;
+    }
     .property, .scalar.string {
         color: darkred;
     }
