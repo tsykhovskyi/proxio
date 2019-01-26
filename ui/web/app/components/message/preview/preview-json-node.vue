@@ -1,12 +1,12 @@
 <template>
     <div class="node" @mouseenter="mouseEntered()" @mouseleave="mouseLeft()" v-bind:class="{hovered: isHover}">
-        <span class="collapser" v-if="isNode()" v-on:click="collapse()">{{ isCollapsed?'-':'+' }}</span>
+        <div class="collapser" v-if="isNode()" v-bind:class="{'collapsed': isCollapsed}" v-on:click="collapse()"></div>
         <div class="top">
             <span v-if="hasKey()"><span class="property">"{{ propertyName }}</span>":</span>
 
             <span v-if="isArray()">[</span>
             <span v-if="isObject()">{</span>
-            <span v-if="isCollapsed" class="collapsed-block"><span v-on:click="collapse()">...</span> {{ getClosedString() }}</span>
+            <span v-if="isCollapsed" class="collapsed-block"><span v-on:click="collapse()" class="expand-sign">&harr;</span> {{ getClosedString() }}</span>
 
             <span v-if="isScalar(node)" class="scalar" v-bind:class="getScalarType(node)">
                 {{ node | formatScalar }}<span v-if="lastProp === false">,</span>
@@ -60,7 +60,8 @@
             },
             methods: {
                 mouseEntered: function () {
-                    this.selectedBlocks.push(this._uid);
+                    if (this.selectedBlocks.indexOf(this._uid) === -1)
+                        this.selectedBlocks.push(this._uid);
                 },
                 mouseLeft: function () {
                     this.selectedBlocks.pop();
@@ -138,7 +139,7 @@
 <style scoped>
     .node {
         margin-left: 30px;
-        /*transition: background-color 0.3s ease-in;*/
+        transition: background-color 0.1s ease-in;
         /*transition-delay: 0.3s;*/
     }
     .scalar.number {
@@ -158,13 +159,39 @@
     }
     .collapser {
         position: absolute;
-        margin-left: -1em;
+        margin-left: -15px;
         cursor: pointer;
+        width: 12px;
+        height: 12px;
+        font-size: 10px;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 1px solid #aaa;
+        margin-top: 4px;
+        content: '';
+        opacity: 0.3;
+    }
+    .collapser:hover {
+        opacity: 1;
+    }
+    .collapser:before {
+        content: '\FF0D';
+    }
+    .collapser.collapsed:before {
+        content: '\FF0B';
     }
     .hidden {
         display: none;
     }
     .collapsed-block {
         cursor: pointer;
+    }
+    .expand-sign {
+        opacity: 0.4;
+    }
+    .expand-sign:hover {
+        opacity: 1;
     }
 </style>
