@@ -1,6 +1,6 @@
 <template>
     <div class="json-preview-box">
-        <preview-json-node v-bind:node="json" v-bind:hovered-blocks="[]"></preview-json-node>
+        <preview-json-node v-bind:node="json"></preview-json-node>
     </div>
 </template>
 
@@ -14,12 +14,13 @@
             },
             watch: {
                 content: function () {
+                    console.log('content changed');
                     this.parseContent();
                 }
             },
             data: function () {
                 return {
-                    data: null
+                    json: {}
                 };
             },
             methods: {

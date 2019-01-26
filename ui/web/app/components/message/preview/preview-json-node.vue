@@ -3,10 +3,12 @@
         <div class="collapser" v-if="isNode()" v-bind:class="{'collapsed': isCollapsed}" v-on:click="collapse()"></div>
         <div class="top">
             <span v-if="hasKey()"><span class="property">"{{ propertyName }}</span>":</span>
-
+            &nbsp;
             <span v-if="isArray()">[</span>
             <span v-if="isObject()">{</span>
-            <span v-if="isCollapsed" class="collapsed-block"><span v-on:click="collapse()" class="expand-sign">&harr;</span> {{ getClosedString() }}</span>
+            <span v-if="isCollapsed" class="collapsed-block">
+                <span v-on:click="collapse()" class="expand-sign">&harr;</span>{{ getClosedString() }}
+            </span>
 
             <span v-if="isScalar(node)" class="scalar" v-bind:class="getScalarType(node)">
                 {{ node | formatScalar }}<span v-if="lastProp === false">,</span>
@@ -14,7 +16,8 @@
         </div>
         <div class="node-struct" v-if="isNode()" v-bind:class="{hidden: isCollapsed}">
             <div class="elem" v-for="(elem, index) in node">
-                <preview-json-node  v-bind:property-name="index" v-bind:node="elem" v-bind:level="getNextLevel()" v-bind:last-prop="index === getLastKey(node)"></preview-json-node>
+                <preview-json-node v-bind:property-name="index" v-bind:node="elem" v-bind:level="getNextLevel()"
+                                   v-bind:last-prop="index === getLastKey(node)"></preview-json-node>
             </div>
             <span>{{ getClosedString() }}</span>
         </div>
@@ -30,7 +33,7 @@
                 formatScalar: function (val) {
                     switch (typeof val) {
                         case "string":
-                            return '"'+val+'"';
+                            return '"' + val + '"';
                         case "object":
                             if (val === null) {
                                 return "null";
@@ -40,7 +43,7 @@
                 }
             },
             created: function () {
-                if('undefined' === typeof Vue.$selectedJsonBlocks) {
+                if ('undefined' === typeof Vue.$selectedJsonBlocks) {
                     Vue.$selectedJsonBlocks = [];
                 }
                 this.selectedBlocks = Vue.$selectedJsonBlocks;
@@ -69,7 +72,7 @@
                 collapse: function () {
                     this.isCollapsed = !this.isCollapsed;
                 },
-                getLastKey: function(obj) {
+                getLastKey: function (obj) {
                     if (Array.isArray(obj)) {
                         return obj.length - 1;
                     }
@@ -90,7 +93,7 @@
                     }
                     return str;
                 },
-                getNextLevel: function() {
+                getNextLevel: function () {
                     if (!this.level) {
                         return 1;
                     }
@@ -141,22 +144,43 @@
         margin-left: 30px;
         transition: background-color 0.1s ease-in;
         /*transition-delay: 0.3s;*/
+        width: auto;
     }
+
+    .node-struct {
+        width: min-content;
+    }
+
+    .top {
+        width: auto;
+        display: flex;
+    }
+
+    .top > span {
+        /*display: inline-block;*/
+    }
+
     .scalar.number {
         color: darkblue;
     }
+
     .property, .scalar.string {
         color: darkred;
     }
+
     .scalar.bool {
         color: purple;
     }
+
     .scalar.null {
         color: red;
     }
+
     .node.hovered {
-        background-color: rgba(235, 238, 249, 1);
+        background-color: #f5f5f5;
+        width: auto;
     }
+
     .collapser {
         position: absolute;
         margin-left: -15px;
@@ -173,24 +197,31 @@
         content: '';
         opacity: 0.3;
     }
+
     .collapser:hover {
         opacity: 1;
     }
+
     .collapser:before {
         content: '\FF0D';
     }
+
     .collapser.collapsed:before {
         content: '\FF0B';
     }
+
     .hidden {
         display: none;
     }
+
     .collapsed-block {
         cursor: pointer;
     }
+
     .expand-sign {
         opacity: 0.4;
     }
+
     .expand-sign:hover {
         opacity: 1;
     }
