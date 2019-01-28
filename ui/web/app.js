@@ -20,7 +20,8 @@ require([
     "vue!components/message/preview",
     "vue!components/message/preview/preview-html",
     "vue!components/message/preview/preview-json",
-    "vue!components/message/preview/preview-json-node"
+    "vue!components/message/preview/preview-json-node",
+    "vue!components/message/preview/preview-image"
 ], function (Vue) {
     new Vue({
         el: "#app",

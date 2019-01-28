@@ -2,6 +2,7 @@
     <div>
         <preview-html v-if="contentType === 0" v-bind:content="body"></preview-html>
         <preview-json v-if="contentType === 1" v-bind:content="body"></preview-json>
+        <preview-image v-if="contentType === 2" v-bind:content="body"></preview-image>
     </div>
 
 </template>
@@ -18,6 +19,7 @@
                 return {
                     // 0 - html
                     // 1 - json
+                    // 2 - image
                     contentType: null
                 };
             },
@@ -31,7 +33,9 @@
                     if ('object' === typeof this.headers['Content-Type']) {
                         var type = this.headers['Content-Type'][0],
                             rHtml = /text\/html/,
-                            rJson = /application\/json/;
+                            rJson = /application\/json/,
+                            rImage = /image\/.+/
+                        ;
                         if (rHtml.test(type)) {
                             this.contentType = 0;
                             return
@@ -39,6 +43,10 @@
                         if (rJson.test(type)) {
                             this.contentType = 1;
                             return
+                        }
+                        if (rImage.test(type)) {
+                            this.contentType = 2;
+                            return;
                         }
                     }
                     this.contentType = null

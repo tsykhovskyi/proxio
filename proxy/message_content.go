@@ -1,6 +1,10 @@
 package proxy
 
-import "time"
+import (
+	"encoding/base64"
+	"net/http"
+	"time"
+)
 
 type MessageContent struct {
 	Id       int
@@ -41,7 +45,7 @@ func BuildContent(m *Message) *MessageContent {
 	c.Request = &Request{
 		req.Method,
 		req.RequestURI,
-		string(m.RequestBody),
+		getBodyForHeaders(m.RequestBody, req.Header),
 		req.Header,
 	}
 	if res != nil {
@@ -50,10 +54,17 @@ func BuildContent(m *Message) *MessageContent {
 
 		c.Response = &Response{
 			res.StatusCode,
-			string(m.ResponseBody),
+			getBodyForHeaders(m.ResponseBody, res.Header),
 			res.Header,
 		}
 	}
 
 	return c
+}
+
+func getBodyForHeaders(body []byte, h http.Header) string {
+	if h.Get("Content-Type") == "image/jpeg" {
+		return base64.StdEncoding.EncodeToString(body)
+	}
+	return string(body)
 }

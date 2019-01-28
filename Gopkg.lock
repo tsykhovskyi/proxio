@@ -29,9 +29,28 @@
   revision = "469ccd6afe52b489eee1e662098562dd7d77a4f8"
   version = "v1.0.0"
 
+[[projects]]
+  branch = "master"
+  digest = "1:082c538aa8ca5e086d5d20ec16417e7fca237de2c4146485e02aa09989d0ff38"
+  name = "golang.org/x/crypto"
+  packages = [
+    "curve25519",
+    "ed25519",
+    "ed25519/internal/edwards25519",
+    "internal/chacha20",
+    "internal/subtle",
+    "poly1305",
+    "ssh",
+  ]
+  pruneopts = "UT"
+  revision = "057139ce5d2bdbe6fe73c53679e24e9cf007f637"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  input-imports = ["github.com/gobwas/ws"]
+  input-imports = [
+    "github.com/gobwas/ws",
+    "golang.org/x/crypto/ssh",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1
