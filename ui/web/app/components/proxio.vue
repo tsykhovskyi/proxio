@@ -14,11 +14,12 @@
                 </div>
                 <table class="table table-hover requests">
                     <tbody>
-                    <tr v-for="m,i in messages"
+                    <tr v-for="(m,i) in messages"
                         v-on:click="activate(i, $event)"
                         v-bind:class="{'table-active': isActive(i), 'table-danger': isMessageCancel(m)}"
                     >
-                        <td>{{ m.Request.Method }} {{ m.Request.URI }}</td>
+                        <td><span class="badge" v-bind:class="getMethodClass(m)">{{ m.Request.Method }}</span></td>
+                        <td class="priority">{{ m.Request.URI }}</td>
                         <td>{{ m.Response && m.Response.Code}}</td>
                         <td>
                             <span v-if="m.Time.TimeTaken > 0">{{ m.Time.TimeTaken | readableTime}}</span>
@@ -61,6 +62,17 @@
                 });
             },
             methods: {
+                getMethodClass: function (message) {
+                    var method = message.Request.Method.toLowerCase();
+                    switch (method) {
+                        case "get":
+                            return "badge-success";
+                        case "delete":
+                            return "badge-danger";
+                        default:
+                            return "badge-warning";
+                    }
+                },
                 activate: function (i) {
                     this.selected = this.messages[i]
                 },
@@ -81,10 +93,10 @@
             filters: {
                 readableTime: function (value) {
                     var result;
-                    if (value * 1000 < 1) {
-                        result = (value * 1000).toFixed(3) + ' ms';
+                    if (value < 1) {
+                        result = (value * 1000).toFixed(2) + 'ms';
                     } else {
-                        result = value.toFixed(3) + ' s';
+                        result = value.toFixed(2) + 's';
                     }
                     return result;
                 }
@@ -94,6 +106,9 @@
 </script>
 
 <style scoped>
+    .priority {
+        width: 100%;
+    }
     .requests tr {
         cursor: pointer;
     }
