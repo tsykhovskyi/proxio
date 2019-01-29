@@ -3,7 +3,7 @@
         <div class="collapser" v-if="isNode()" v-bind:class="{'collapsed': isCollapsed}" v-on:click="collapse()"></div>
         <div class="top">
             <span v-if="hasKey()"><span class="property">"{{ propertyName }}</span>":</span>
-            &nbsp;
+            <span v-if="isNode()" class="counter">({{ countChildren(node) }})</span>
             <span v-if="isArray()">[</span>
             <span v-if="isObject()">{</span>
             <span v-if="isCollapsed" class="collapsed-block">
@@ -78,6 +78,12 @@
                     }
                     var keys = Object.keys(obj);
                     return keys[keys.length - 1];
+                },
+                countChildren: function (obj) {
+                    if (Array.isArray(obj)) {
+                        return obj.length;
+                    }
+                    return Object.keys(obj).length;
                 },
                 getClosedString: function (obj) {
                     var str = "";
@@ -160,11 +166,21 @@
         /*display: inline-block;*/
     }
 
+    .counter {
+        font-size: 11px;
+        font-style: italic;
+        color: #aaa;
+        margin: 0 5px;
+    }
+
+    .scalar {
+        white-space: nowrap;
+    }
     .scalar.number {
         color: darkblue;
     }
     .property {
-        white-space: nowrap;
+        /*white-space: nowrap;*/
     }
     .property, .scalar.string {
         color: darkred;

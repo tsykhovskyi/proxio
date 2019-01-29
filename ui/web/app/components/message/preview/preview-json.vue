@@ -14,7 +14,6 @@
             },
             watch: {
                 content: function () {
-                    console.log('content changed');
                     this.parseContent();
                 }
             },
@@ -36,6 +35,9 @@
 </script>
 
 <style scoped>
+    .json-preview-box {
+        overflow: auto;
+    }
     .json-preview-box > div {
         margin: 0 !important;
     }

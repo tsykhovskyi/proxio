@@ -50,8 +50,6 @@
 
                 $http.getJson('/m', function (data) {
                     data.forEach(function (message) {
-                        console.log(message.Id);
-                        // message.Response.Body = btoa(message.Response.Body);
                         $storage.add(message);
                         self.messages = $storage.getMessages();
                         self.selected = self.messages.count === 0 ? null : self.messages[0];
