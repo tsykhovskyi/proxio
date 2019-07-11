@@ -14,36 +14,28 @@ var (
 	messageCounter int = 0
 )
 
-func ListenAndServe(proxyPortAccept string, target string) chan *Message {
-	proxy := New(proxyPortAccept, target)
-	return proxy.Serve()
-}
-
-func New(localPort string, target string) *Proxy {
+func ListenAndServe(listener net.Listener, target string) chan *Message {
 	targetUrl, err := url.Parse(target)
 	if err != nil {
 		panic("invalid target url")
 	}
 
-	return &Proxy{
-		localPort,
+	proxy := &Proxy{
+		listener,
 		targetUrl,
 		make(chan *Message, 1),
 	}
+	return proxy.Serve()
 }
 
 type Proxy struct {
-	localPort string
-	target    *url.URL
-	messages  chan *Message
+	listener net.Listener
+	target   *url.URL
+	messages chan *Message
 }
 
 func (p *Proxy) Serve() chan *Message {
 	go func() {
-		hostListener, err := net.Listen("tcp", p.localPort)
-		if err != nil {
-			panic(fmt.Sprintf("proxy lister error: %s", err))
-		}
 
 		proxy := httputil.NewSingleHostReverseProxy(p.target)
 		proxy.Transport = &transport{p, http.DefaultTransport}
@@ -53,7 +45,7 @@ func (p *Proxy) Serve() chan *Message {
 		})
 
 		srv := &http.Server{}
-		err = srv.Serve(hostListener)
+		err := srv.Serve(p.listener)
 		if err != nil {
 			panic(fmt.Sprintf("unable to serve proxy: %s\n", err))
 		}
