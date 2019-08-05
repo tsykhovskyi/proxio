@@ -38,16 +38,16 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:637e92b7fe88b00d366e483724419fc4141f2b2b71a0bd455dd5db690d43a940"
+  digest = "1:e1b6d57be5da59c8877c14722e18f6bfb8b1b701232ef526cc63035fc6fb5985"
   name = "github.com/gobwas/ws"
   packages = ["."]
   pruneopts = "UT"
-  revision = "469ccd6afe52b489eee1e662098562dd7d77a4f8"
-  version = "v1.0.0"
+  revision = "05baaea2bbcfe8963301c62d9931c882d59595cd"
+  version = "v1.0.2"
 
 [[projects]]
   branch = "master"
-  digest = "1:082c538aa8ca5e086d5d20ec16417e7fca237de2c4146485e02aa09989d0ff38"
+  digest = "1:ffebede762b00a7ffe84ef08efc4f4e87823b5298b4fd477313579f553db0c6a"
   name = "golang.org/x/crypto"
   packages = [
     "curve25519",
@@ -59,7 +59,15 @@
     "ssh",
   ]
   pruneopts = "UT"
-  revision = "057139ce5d2bdbe6fe73c53679e24e9cf007f637"
+  revision = "4def268fd1a49955bfb3dda92fe3db4f924f2285"
+
+[[projects]]
+  branch = "master"
+  digest = "1:9289797869517c73400e7b5a93beefbfc86e06f56e3ab03f38fb0d575e685277"
+  name = "golang.org/x/sys"
+  packages = ["cpu"]
+  pruneopts = "UT"
+  revision = "51ab0e2deafac1f46c46ad59cf0921be2f180c3d"
 
 [solve-meta]
   analyzer-name = "dep"

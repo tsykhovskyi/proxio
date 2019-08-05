@@ -1,23 +1,23 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	server "github.com/gliderlabs/ssh"
-	"golang.org/x/crypto/ssh"
+	"github.com/gliderlabs/ssh"
+	gossh "golang.org/x/crypto/ssh"
 	"io"
 	"io/ioutil"
 	"log"
-	"net"
 )
 
-func publicKeyFile(file string) ssh.Signer {
+func publicKeyFile(file string) gossh.Signer {
 	buffer, err := ioutil.ReadFile(file)
 	if err != nil {
 		log.Fatalln(fmt.Sprintf("Cannot read SSH private key file %s", file))
 		return nil
 	}
 
-	key, err := ssh.ParsePrivateKey(buffer)
+	key, err := gossh.ParsePrivateKey(buffer)
 	if err != nil {
 		log.Fatalln(fmt.Sprintf("Cannot parse SSH public key file %s", file))
 		return nil
@@ -27,27 +27,42 @@ func publicKeyFile(file string) ssh.Signer {
 }
 
 func main() {
-	handler := func(s server.Session) {
+	handler := func(s ssh.Session) {
 		io.WriteString(s, "Hello world\n")
+
+		scanner := bufio.NewScanner(s)
+		for scanner.Scan() {
+			fmt.Fprintln(s, "got:", scanner.Text())
+		}
+
 	}
 
-	s := &server.Server{
+	s := &ssh.Server{
 		Addr:    ":2222",
 		Handler: handler,
-		ConnCallback: func(conn net.Conn) net.Conn {
-			return conn
-		},
-		LocalPortForwardingCallback: func(ctx server.Context, destinationHost string, destinationPort uint32) bool {
+		LocalPortForwardingCallback: func(ctx ssh.Context, destinationHost string, destinationPort uint32) bool {
 			return true
 		},
-		SessionRequestCallback: func(sess server.Session, requestType string) bool {
+		SessionRequestCallback: func(sess ssh.Session, requestType string) bool {
 			return true
 		},
-		ReversePortForwardingCallback: func(ctx server.Context, bindHost string, bindPort uint32) bool {
+		ReversePortForwardingCallback: func(ctx ssh.Context, bindHost string, bindPort uint32) bool {
 			return true
+		},
+		PtyCallback: func(ctx ssh.Context, pty ssh.Pty) bool {
+			return false
 		},
 	}
 	s.AddHostKey(publicKeyFile("cmd/server/keys/id_rsa"))
+
+	tcpIpForwardHandler := &ssh.ForwardedTCPHandler{}
+	s.RequestHandlers = map[string]ssh.RequestHandler{
+		"tcpip-forward":        tcpIpForwardHandler.HandleSSHRequest,
+		"cancel-tcpip-forward": tcpIpForwardHandler.HandleSSHRequest,
+	}
+
+	s.ChannelHandlers = ssh.DefaultChannelHandlers
+	s.ChannelHandlers["direct-tcpip"] = ssh.DirectTCPIPHandler
 
 	log.Fatal(s.ListenAndServe())
 }
