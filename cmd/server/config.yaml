@@ -1,0 +1,9 @@
+# server host
+host: localhost
+
+# Port for accepting incoming ssh connection
+# ssh_port: 22
+ssh_port: 2222
+
+# Path to server private key
+private_key_path: 'cmd/server/keys/server_id_rsa'
