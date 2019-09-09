@@ -32,9 +32,7 @@ func init() {
 	if nil != err {
 		panic("no configuration file")
 	}
-	config = &ServerConfig{
-		SshPort: "22",
-	}
+	config = &ServerConfig{}
 	err = yaml.Unmarshal(data, &config)
 	if nil != err {
 		panic("wrong configuration. " + err.Error())
@@ -50,5 +48,5 @@ func helpText() {
 }
 
 func main() {
-	server.StartServer(config.SshPort, config.PrivateKeyPath)
+	server.StartSSHServer(config.SshPort, config.PrivateKeyPath)
 }

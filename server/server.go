@@ -10,7 +10,7 @@ import (
 	"log"
 )
 
-func StartServer(port string, serverKeyPath string) {
+func StartSSHServer(port string, serverKeyPath string) {
 	handler := func(s ssh.Session) {
 		key := gossh.MarshalAuthorizedKey(s.PublicKey())
 		out := fmt.Sprintf("Hi, %s\n", key)
@@ -43,10 +43,10 @@ func StartServer(port string, serverKeyPath string) {
 	}
 	s.AddHostKey(publicKeyFile(serverKeyPath))
 
-	tcpIpForwardHandler := &ssh.ForwardedTCPHandler{}
+	balancer := &Balancer{}
 	s.RequestHandlers = map[string]ssh.RequestHandler{
-		"tcpip-forward":        tcpIpForwardHandler.HandleSSHRequest,
-		"cancel-tcpip-forward": tcpIpForwardHandler.HandleSSHRequest,
+		"tcpip-forward":        balancer.HandleSSHRequest,
+		"cancel-tcpip-forward": balancer.HandleSSHRequest,
 	}
 
 	s.ChannelHandlers = ssh.DefaultChannelHandlers
