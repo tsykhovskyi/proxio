@@ -10,19 +10,52 @@ import (
 	"proxio/ui"
 )
 
-func main() {
-	var targetUrl = "http://localhost:8011"
-	var uiUrl = "http://127.0.0.1:4001"
+type Endpoint struct {
+	Host string
+	Port int
+}
 
-	l, _ := net.Listen("tcp", ":8012")
-	// l := tunnel()
+func (e *Endpoint) String() string {
+	return fmt.Sprintf("%s:%d", e.Host, e.Port)
+}
+
+func (e *Endpoint) Url() string {
+	return fmt.Sprintf("http://%s:%d", e.Host, e.Port)
+}
+
+// local service to be forwarded
+var localEndpoint = Endpoint{
+	Host: "localhost",
+	Port: 80,
+}
+
+// remote SSH server
+var serverEndpoint = Endpoint{
+	Host: "localhost",
+	Port: 2222,
+}
+
+// remote forwarding port (on remote SSH server network)
+var remoteEndpoint = Endpoint{
+	Host: "subdomain3.localhost",
+	Port: 8080,
+}
+
+// web UI
+var webUiEndpoint = Endpoint{
+	Host: "localhost",
+	Port: 4001,
+}
+
+func main() {
+	l := tunnel(serverEndpoint, remoteEndpoint)
 	defer l.Close()
 
-	messagesChannel := proxy.ListenAndServe(l, targetUrl)
-	ui.Serve(uiUrl, messagesChannel)
+	messagesChannel := proxy.ListenAndServe(l, localEndpoint.Url())
+	ui.Serve(webUiEndpoint.String(), messagesChannel)
 
-	fmt.Printf("Forwarding: %s\t->\t%s\n", "", targetUrl)
-	fmt.Printf("Web interface: %s\n\n", uiUrl)
+	fmt.Printf("Forwarding: %s\t->\t%s\n", remoteEndpoint.String(), localEndpoint.String())
+	fmt.Printf("Web interface: %s\n\n", webUiEndpoint.String())
 
 	select {}
 }
@@ -42,7 +75,7 @@ func publicKeyFile(file string) ssh.AuthMethod {
 	return ssh.PublicKeys(key)
 }
 
-func tunnel() net.Listener {
+func tunnel(serverEndpoint, remoteEndpoint Endpoint) net.Listener {
 	sshConfig := &ssh.ClientConfig{
 		// SSH connection username
 		User: "root",
@@ -58,13 +91,15 @@ func tunnel() net.Listener {
 		// },
 	}
 
-	serverConn, err := ssh.Dial("tcp", "68.183.216.91:2329", sshConfig)
+	serverConn, err := ssh.Dial("tcp", serverEndpoint.String(), sshConfig)
 	// serverConn, err := ssh.Dial("tcp", "serveo.net:22", sshConfig)
 	if err != nil {
 		log.Fatalln(fmt.Printf("Dial INTO remote server error: %s", err))
 	}
 
-	listener, err := serverConn.Listen("tcp", "0.0.0.0:55012")
+	// serverConn.SendRequest()
+
+	listener, err := serverConn.Listen("tcp", remoteEndpoint.String())
 	if err != nil {
 		log.Fatalln(fmt.Printf("Listen open port ON remote server error: %s", err))
 	}

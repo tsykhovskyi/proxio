@@ -36,7 +36,6 @@ type Proxy struct {
 
 func (p *Proxy) Serve() chan *Message {
 	go func() {
-
 		proxy := httputil.NewSingleHostReverseProxy(p.target)
 		proxy.Transport = &transport{p, http.DefaultTransport}
 

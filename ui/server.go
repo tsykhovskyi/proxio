@@ -1,18 +1,11 @@
 package ui
 
 import (
-	"fmt"
 	"net/http"
-	"net/url"
 	"proxio/proxy"
 )
 
-func Serve(local string, messagesChan chan *proxy.Message) {
-	localUrl, err := url.Parse(local)
-	if err != nil {
-		panic(fmt.Sprintf("Unable to parse url: %s", err))
-	}
-
+func Serve(addr string, messagesChan chan *proxy.Message) {
 	connectionPool := NewConnectionPool()
 	storage := NewStorage()
 
@@ -33,6 +26,6 @@ func Serve(local string, messagesChan chan *proxy.Message) {
 		connectionPool.NewConnection(connection)
 	})
 	go func() {
-		panic(http.ListenAndServe(localUrl.Host, mux))
+		panic(http.ListenAndServe(addr, mux))
 	}()
 }
