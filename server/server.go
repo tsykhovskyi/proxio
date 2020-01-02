@@ -45,8 +45,9 @@ func StartSSHServer(port string, serverKeyPath string) {
 
 	balancer := &Balancer{}
 	s.RequestHandlers = map[string]ssh.RequestHandler{
-		"tcpip-forward":        balancer.HandleSSHRequest,
-		"cancel-tcpip-forward": balancer.HandleSSHRequest,
+		"prepare-tcpip-forward": balancer.HandleSSHRequest,
+		"tcpip-forward":         balancer.HandleSSHRequest,
+		"cancel-tcpip-forward":  balancer.HandleSSHRequest,
 	}
 
 	s.ChannelHandlers = ssh.DefaultChannelHandlers

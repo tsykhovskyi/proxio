@@ -63,7 +63,7 @@ func BuildContent(m *Message) *MessageContent {
 }
 
 func getBodyForHeaders(body []byte, h http.Header) string {
-	if h.Get("Content-Type") == "image/jpeg" {
+	if h.Get("Content-Type") == "image/jpeg" || h.Get("Content-Type") == "image/png" {
 		return base64.StdEncoding.EncodeToString(body)
 	}
 	return string(body)

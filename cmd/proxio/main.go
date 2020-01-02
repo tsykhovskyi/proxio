@@ -26,7 +26,7 @@ func (e *Endpoint) Url() string {
 // local service to be forwarded
 var localEndpoint = Endpoint{
 	Host: "localhost",
-	Port: 80,
+	Port: 81,
 }
 
 // remote SSH server
@@ -37,8 +37,8 @@ var serverEndpoint = Endpoint{
 
 // remote forwarding port (on remote SSH server network)
 var remoteEndpoint = Endpoint{
-	Host: "subdomain3.localhost",
-	Port: 8080,
+	Host: "localhost",
+	Port: 82,
 }
 
 // web UI
@@ -75,6 +75,11 @@ func publicKeyFile(file string) ssh.AuthMethod {
 	return ssh.PublicKeys(key)
 }
 
+type remoteForwardRequest struct {
+	BindAddr string
+	BindPort uint32
+}
+
 func tunnel(serverEndpoint, remoteEndpoint Endpoint) net.Listener {
 	sshConfig := &ssh.ClientConfig{
 		// SSH connection username
@@ -97,7 +102,15 @@ func tunnel(serverEndpoint, remoteEndpoint Endpoint) net.Listener {
 		log.Fatalln(fmt.Printf("Dial INTO remote server error: %s", err))
 	}
 
-	// serverConn.SendRequest()
+	m := remoteForwardRequest{
+		remoteEndpoint.Host,
+		uint32(remoteEndpoint.Port),
+	}
+	// send message
+	_, _, err = serverConn.SendRequest("prepare-tcpip-forward", true, ssh.Marshal(&m))
+	if err != nil {
+		log.Fatalln(fmt.Printf("Unable"))
+	}
 
 	listener, err := serverConn.Listen("tcp", remoteEndpoint.String())
 	if err != nil {

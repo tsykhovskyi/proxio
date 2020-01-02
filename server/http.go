@@ -35,7 +35,8 @@ func (gs *GroupServer) ServeHttp(w http.ResponseWriter, r *http.Request) {
 	originPort, _ := strconv.Atoi(orignPortStr)
 
 	payload := gossh.Marshal(&remoteForwardChannelData{
-		DestAddr:   destAddr,
+		// DestAddr:   destAddr,
+		DestAddr:   "127.0.0.1",
 		DestPort:   uint32(destPort),
 		OriginAddr: originAddr,
 		OriginPort: uint32(originPort),
@@ -69,6 +70,15 @@ func (gs *GroupServer) addChannel(host string, channel *gossh.ServerConn, reqPay
 		Conn:          channel,
 		ReqSshPayload: reqPayload,
 	}
+}
+
+func (gs *GroupServer) hasChannel(conn *gossh.ServerConn) bool {
+	for _, fw := range gs.ForwardsMap {
+		if fw.Conn == conn {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *Balancer) AdjustNewForward(ctx context.Context, addr string, conn *gossh.ServerConn, reqPayload remoteForwardRequest) {
