@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"proxio/proxy"
+	"proxio/client"
 )
 
 func NewConnectionPool() *Pool {
@@ -36,7 +36,7 @@ func (p *Pool) removeConnection(conn *Connection) {
 	}
 }
 
-func (p *Pool) BroadcastMessage(message *proxy.MessageContent) {
+func (p *Pool) BroadcastMessage(message *client.MessageContent) {
 	for _, conn := range p.Connections {
 		if err := conn.Send(message); err != nil {
 			println("error sending message", p.Connections)

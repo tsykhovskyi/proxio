@@ -2,10 +2,10 @@ package ui
 
 import (
 	"net/http"
-	"proxio/proxy"
+	"proxio/client"
 )
 
-func Serve(addr string, messagesChan chan *proxy.Message) {
+func Serve(addr string, messagesChan chan *client.Message) {
 	connectionPool := NewConnectionPool()
 	storage := NewStorage()
 

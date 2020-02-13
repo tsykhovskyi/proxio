@@ -6,16 +6,16 @@ import (
 	"github.com/gobwas/ws"
 	"net"
 	"net/http"
-	"proxio/proxy"
+	"proxio/client"
 )
 
 type Connection struct {
 	conn      net.Conn
-	messages  chan *proxy.MessageContent
+	messages  chan *client.MessageContent
 	closeChan chan bool
 }
 
-func (c *Connection) Send(m *proxy.MessageContent) error {
+func (c *Connection) Send(m *client.MessageContent) error {
 	payload, err := json.Marshal(m)
 	if err != nil {
 		panic("unable to encode frame")
@@ -34,7 +34,7 @@ func serveWs(w http.ResponseWriter, r *http.Request, closeChannel chan *Connecti
 		fmt.Println("Server doesn't support ws")
 	}
 
-	connection := &Connection{conn, make(chan *proxy.MessageContent), make(chan bool, 1)}
+	connection := &Connection{conn, make(chan *client.MessageContent), make(chan bool, 1)}
 
 	go func() {
 		defer conn.Close()

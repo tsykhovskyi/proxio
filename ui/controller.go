@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"proxio/proxy"
+	"proxio/client"
 	"regexp"
 )
 
@@ -36,7 +36,7 @@ func filterURI(uri string) string {
 }
 
 func (c *Controller) allMessages(w http.ResponseWriter, r *http.Request) {
-	response := make([]*proxy.MessageContent, 0)
+	response := make([]*client.MessageContent, 0)
 
 	for _, m := range c.Storage.All() {
 		response = append(response, m.GetContext())

@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
-	"proxio/proxy"
+	"proxio/client"
 	"proxio/ui"
 )
 
@@ -38,7 +38,7 @@ var serverEndpoint = Endpoint{
 // remote forwarding port (on remote SSH server network)
 var remoteEndpoint = Endpoint{
 	Host: "localhost",
-	Port: 82,
+	Port: 83,
 }
 
 // web UI
@@ -51,7 +51,7 @@ func main() {
 	l := tunnel(serverEndpoint, remoteEndpoint)
 	defer l.Close()
 
-	messagesChannel := proxy.ListenAndServe(l, localEndpoint.Url())
+	messagesChannel := client.ListenAndServe(l, localEndpoint.Url())
 	ui.Serve(webUiEndpoint.String(), messagesChannel)
 
 	fmt.Printf("Forwarding: %s\t->\t%s\n", remoteEndpoint.String(), localEndpoint.String())

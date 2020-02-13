@@ -1,4 +1,4 @@
-package proxy
+package client
 
 import (
 	"bytes"
@@ -46,7 +46,7 @@ func (p *Proxy) Serve() chan *Message {
 		srv := &http.Server{}
 		err := srv.Serve(p.listener)
 		if err != nil {
-			panic(fmt.Sprintf("unable to serve proxy: %s\n", err))
+			panic(fmt.Sprintf("unable to serve client: %s\n", err))
 		}
 	}()
 

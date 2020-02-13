@@ -1,25 +1,25 @@
 package ui
 
-import "proxio/proxy"
+import "proxio/client"
 
 func NewStorage() *Storage {
 	return &Storage{
-		messages: make(map[int]*proxy.Message),
+		messages: make(map[int]*client.Message),
 	}
 }
 
 type Storage struct {
-	messages map[int]*proxy.Message
+	messages map[int]*client.Message
 }
 
-func (s *Storage) Add(m *proxy.Message) {
+func (s *Storage) Add(m *client.Message) {
 	s.messages[m.Id] = m
 }
 
-func (s *Storage) All() map[int]*proxy.Message {
+func (s *Storage) All() map[int]*client.Message {
 	return s.messages
 }
 
 func (s *Storage) RemoveAll() {
-	s.messages = make(map[int]*proxy.Message)
+	s.messages = make(map[int]*client.Message)
 }
