@@ -6,4 +6,4 @@ host: localhost
 ssh_port: 2222
 
 # Path to server private key
-private_key_path: 'cmd/server/keys/server_id_rsa'
+private_key_path: '/Users/itsykhovskyi/projects/proxio/config/keys/server_id_rsa'

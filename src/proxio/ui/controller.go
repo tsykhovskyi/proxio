@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"proxio/client"
 	"regexp"
 )
@@ -25,7 +26,13 @@ func (c *Controller) static(w http.ResponseWriter, r *http.Request) {
 		fileName = "/index.html"
 	}
 
-	http.ServeFile(w, r, "ui/web"+fileName)
+	wd, err := os.Getwd()
+	println(wd)
+	if err != nil {
+		panic(err)
+	}
+
+	http.ServeFile(w, r, wd+"/ui/web"+fileName)
 }
 
 func filterURI(uri string) string {

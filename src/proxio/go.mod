@@ -11,5 +11,5 @@ require (
 	github.com/gobwas/ws v1.0.2
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/sys v0.0.0-20190804053845-51ab0e2deafa // indirect
-	gopkg.in/yaml.v2 v2.2.2
+	gopkg.in/yaml.v2 v2.2.8
 )
