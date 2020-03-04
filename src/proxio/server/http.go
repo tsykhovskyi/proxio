@@ -11,21 +11,55 @@ import (
 	"strconv"
 )
 
-var Servers = make(map[string]*GroupServer)
-
-type GroupServer struct {
-	Server      *http.Server
-	ForwardsMap map[string]*ForwardMap
+type ForwardServers struct {
+	servers map[uint32]*ForwardServer
 }
 
-type ForwardMap struct {
+type ForwardAddress string
+
+type ForwardServer struct {
+	Server      *http.Server
+	ForwardsMap map[ForwardAddress]*ForwardDest
+}
+
+type ForwardDest struct {
 	Conn          *gossh.ServerConn
 	ReqSshPayload remoteForwardRequest
 }
 
-func (gs *GroupServer) ServeHttp(w http.ResponseWriter, r *http.Request) {
+func (fss *ForwardServers) HasConnectionOnPort(conn *gossh.ServerConn, port uint32) bool {
+	return fss.servers[port] != nil && fss.servers[port].hasChannel(conn)
+}
+
+func (fss *ForwardServers) HasForwardAddress(address string, port uint32) bool {
+	return fss.servers[port] != nil && fss.servers[port].ForwardsMap[ForwardAddress(address)] != nil
+}
+
+func (fss *ForwardServers) AdjustNewForward(ctx context.Context, addr string, port uint32, conn *gossh.ServerConn, reqPayload remoteForwardRequest) {
+	if _, ok := fss.servers[port]; !ok {
+		fs := &ForwardServer{ForwardsMap: make(map[ForwardAddress]*ForwardDest, 0)}
+
+		fs.Server = &http.Server{
+			Addr:    ":" + strconv.Itoa(int(port)),
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fs.ServeHttp(w, r) }),
+		}
+		// _ = fs.Server.Shutdown(ctx)
+		go func() {
+			err := fs.Server.ListenAndServe()
+			if err != nil {
+				log.Fatal(err)
+			}
+		}()
+
+		fss.servers[port] = fs
+	}
+
+	fss.servers[port].addChannel(addr, conn, reqPayload)
+}
+
+func (fs *ForwardServer) ServeHttp(w http.ResponseWriter, r *http.Request) {
 	destAddr, destPortStr, _ := net.SplitHostPort(r.Host)
-	if _, ok := gs.ForwardsMap[destAddr]; !ok {
+	if _, ok := fs.ForwardsMap[ForwardAddress(destAddr)]; !ok {
 		return
 	}
 
@@ -41,7 +75,7 @@ func (gs *GroupServer) ServeHttp(w http.ResponseWriter, r *http.Request) {
 		OriginAddr: originAddr,
 		OriginPort: uint32(originPort),
 	})
-	ch, reqs, err := gs.ForwardsMap[destAddr].Conn.OpenChannel(forwardedTCPChannelType, payload)
+	ch, reqs, err := fs.ForwardsMap[ForwardAddress(destAddr)].Conn.OpenChannel(forwardedTCPChannelType, payload)
 	if err != nil {
 		log.Println(err)
 		return
@@ -62,18 +96,21 @@ func (gs *GroupServer) ServeHttp(w http.ResponseWriter, r *http.Request) {
 	for key, header := range res.Header {
 		w.Header().Set(key, header[0])
 	}
-	io.Copy(w, res.Body)
+	_, err = io.Copy(w, res.Body)
+	if err != nil {
+		panic(err)
+	}
 }
 
-func (gs *GroupServer) addChannel(host string, channel *gossh.ServerConn, reqPayload remoteForwardRequest) {
-	gs.ForwardsMap[host] = &ForwardMap{
+func (fs *ForwardServer) addChannel(host string, channel *gossh.ServerConn, reqPayload remoteForwardRequest) {
+	fs.ForwardsMap[ForwardAddress(host)] = &ForwardDest{
 		Conn:          channel,
 		ReqSshPayload: reqPayload,
 	}
 }
 
-func (gs *GroupServer) hasChannel(conn *gossh.ServerConn) bool {
-	for _, fw := range gs.ForwardsMap {
+func (fs *ForwardServer) hasChannel(conn *gossh.ServerConn) bool {
+	for _, fw := range fs.ForwardsMap {
 		if fw.Conn == conn {
 			return true
 		}
@@ -81,33 +118,6 @@ func (gs *GroupServer) hasChannel(conn *gossh.ServerConn) bool {
 	return false
 }
 
-func (b *Balancer) AdjustNewForward(ctx context.Context, addr string, conn *gossh.ServerConn, reqPayload remoteForwardRequest) {
-	host, port, _ := net.SplitHostPort(addr)
-	if _, ok := Servers[port]; !ok {
-		gs := &GroupServer{ForwardsMap: make(map[string]*ForwardMap, 0)}
-
-		gs.Server = &http.Server{
-			Addr:    ":" + port,
-			Handler: &pHandler{httpForward: gs.ServeHttp},
-		}
-		// gs.Server.Shutdown(ctx)
-		go func() {
-			err := gs.Server.ListenAndServe()
-			if err != nil {
-				log.Fatal(err)
-			}
-		}()
-
-		Servers[port] = gs
-	}
-
-	Servers[port].addChannel(host, conn, reqPayload)
-}
-
-type pHandler struct {
-	httpForward func(http.ResponseWriter, *http.Request)
-}
-
-func (p *pHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	p.httpForward(w, r)
+func NewForwardServers() *ForwardServers {
+	return &ForwardServers{servers: make(map[uint32]*ForwardServer)}
 }

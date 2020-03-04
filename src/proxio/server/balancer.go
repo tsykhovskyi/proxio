@@ -1,11 +1,7 @@
 package server
 
 import (
-	"fmt"
 	"github.com/gliderlabs/ssh"
-	"net"
-	"strconv"
-	"sync"
 )
 import gossh "golang.org/x/crypto/ssh"
 
@@ -35,17 +31,10 @@ type remoteForwardCancelRequest struct {
 }
 
 type Balancer struct {
-	forwards map[string]net.Listener
-
-	sync.Mutex
+	servers *ForwardServers
 }
 
 func (b *Balancer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh.Request) (bool, []byte) {
-	b.Lock()
-	if b.forwards == nil {
-		b.forwards = make(map[string]net.Listener)
-	}
-	b.Unlock()
 	conn := ctx.Value(ssh.ContextKeyConn).(*gossh.ServerConn)
 	switch req.Type {
 	case "prepare-tcpip-forward":
@@ -54,8 +43,8 @@ func (b *Balancer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh
 			// TODO: log parse failure
 			return false, []byte{}
 		}
-		addr := net.JoinHostPort(reqPayload.BindAddr, strconv.Itoa(int(reqPayload.BindPort)))
-		b.AdjustNewForward(ctx, addr, conn, reqPayload)
+
+		b.servers.AdjustNewForward(ctx, reqPayload.BindAddr, reqPayload.BindPort, conn, reqPayload)
 
 		return true, gossh.Marshal(&remoteForwardSuccess{reqPayload.BindPort})
 	case "tcpip-forward":
@@ -64,14 +53,13 @@ func (b *Balancer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh
 			// TODO: log parse failure
 			return false, []byte{}
 		}
-		if gs := Servers[fmt.Sprintf("%d", reqPayload.BindPort)]; gs != nil && gs.hasChannel(conn) {
+
+		// problem with ssh lib that send 127.0.0.1 instead of localhost
+		if b.servers.HasConnectionOnPort(conn, reqPayload.BindPort) {
 			return true, gossh.Marshal(&remoteForwardSuccess{reqPayload.BindPort})
 		}
 
-		addr := net.JoinHostPort(reqPayload.BindAddr, strconv.Itoa(int(reqPayload.BindPort)))
-		fmt.Println(addr)
-
-		b.AdjustNewForward(ctx, addr, conn, reqPayload)
+		b.servers.AdjustNewForward(ctx, reqPayload.BindAddr, reqPayload.BindPort, conn, reqPayload)
 		return true, gossh.Marshal(&remoteForwardSuccess{reqPayload.BindPort})
 
 	case "cancel-tcpip-forward":
@@ -80,15 +68,22 @@ func (b *Balancer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh
 			// TODO: log parse failure
 			return false, []byte{}
 		}
-		addr := net.JoinHostPort(reqPayload.BindAddr, strconv.Itoa(int(reqPayload.BindPort)))
-		b.Lock()
-		ln, ok := b.forwards[addr]
-		b.Unlock()
-		if ok {
-			ln.Close()
-		}
+		// addr := net.JoinHostPort(reqPayload.BindAddr, strconv.Itoa(int(reqPayload.BindPort)))
+		// ln, ok := b.forwards[addr]
+		// b.Unlock()
+		// if ok {
+		// 	ln.Close()
+		// }
 		return true, nil
 	default:
 		return false, nil
 	}
+}
+
+func NewBalancer(servers *ForwardServers) *Balancer {
+	b := &Balancer{
+		servers: servers,
+	}
+
+	return b
 }

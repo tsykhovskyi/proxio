@@ -27,7 +27,6 @@ func (c *Controller) static(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wd, err := os.Getwd()
-	println(wd)
 	if err != nil {
 		panic(err)
 	}

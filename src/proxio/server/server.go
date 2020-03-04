@@ -1,15 +1,18 @@
 package server
 
 import (
+	"fmt"
 	"github.com/gliderlabs/ssh"
+	gossh "golang.org/x/crypto/ssh"
+	"io"
 	"log"
 )
 
 func StartSSHServer(port string, serverKeyPath string) {
 	handler := func(s ssh.Session) {
-		// key := gossh.MarshalAuthorizedKey(s.PublicKey())
-		// out := fmt.Sprintf("Hi, %s\n", key)
-		// io.WriteString(s, out)
+		key := gossh.MarshalAuthorizedKey(s.PublicKey())
+		out := fmt.Sprintf("Hi, %s\n", key)
+		io.WriteString(s, out)
 	}
 
 	s := &ssh.Server{
@@ -33,7 +36,9 @@ func StartSSHServer(port string, serverKeyPath string) {
 	}
 	s.AddHostKey(publicKeyFile(serverKeyPath))
 
-	balancer := &Balancer{}
+	servers := NewForwardServers()
+
+	balancer := NewBalancer(servers)
 	s.RequestHandlers = map[string]ssh.RequestHandler{
 		"prepare-tcpip-forward": balancer.HandleSSHRequest, // custom type, sending from client application
 		"tcpip-forward":         balancer.HandleSSHRequest,
