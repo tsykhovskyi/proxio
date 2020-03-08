@@ -28,11 +28,12 @@ type ForwardDest struct {
 }
 
 func (fss *ForwardServers) HasConnectionOnPort(conn *gossh.ServerConn, port uint32) bool {
-	return fss.servers[port] != nil && fss.servers[port].hasChannel(conn)
+	return fss.servers[port] != nil && fss.servers[port].getByConn(conn) != nil
 }
 
-func (fss *ForwardServers) HasForwardAddress(address string, port uint32) bool {
-	return fss.servers[port] != nil && fss.servers[port].ForwardsMap[ForwardAddress(address)] != nil
+func (fss *ForwardServers) UpdatePayloadConnectionOnPort(conn *gossh.ServerConn, port uint32, reqPayload remoteForwardRequest) {
+	dest := fss.servers[port].getByConn(conn)
+	dest.ReqSshPayload = reqPayload
 }
 
 func (fss *ForwardServers) AdjustNewForward(ctx context.Context, addr string, port uint32, conn *gossh.ServerConn, reqPayload remoteForwardRequest) {
@@ -58,20 +59,23 @@ func (fss *ForwardServers) AdjustNewForward(ctx context.Context, addr string, po
 }
 
 func (fs *ForwardServer) ServeHttp(w http.ResponseWriter, r *http.Request) {
-	destAddr, destPortStr, _ := net.SplitHostPort(r.Host)
+	destAddr, _, _ := net.SplitHostPort(r.Host)
 	if _, ok := fs.ForwardsMap[ForwardAddress(destAddr)]; !ok {
 		return
 	}
 
-	destPort, _ := strconv.Atoi(destPortStr)
+	// destPort, _ := strconv.Atoi(destPortStr)
 
 	originAddr, orignPortStr, _ := net.SplitHostPort(r.RemoteAddr)
 	originPort, _ := strconv.Atoi(orignPortStr)
 
+	reqPayload := fs.ForwardsMap[ForwardAddress(destAddr)].ReqSshPayload
+
 	payload := gossh.Marshal(&remoteForwardChannelData{
-		// DestAddr:   destAddr,
-		DestAddr:   "127.0.0.1",
-		DestPort:   uint32(destPort),
+		DestAddr: reqPayload.BindAddr,
+		// DestAddr:   "127.0.0.1",
+		DestPort: reqPayload.BindPort,
+		// DestPort:   uint32(destPort),
 		OriginAddr: originAddr,
 		OriginPort: uint32(originPort),
 	})
@@ -109,13 +113,13 @@ func (fs *ForwardServer) addChannel(host string, channel *gossh.ServerConn, reqP
 	}
 }
 
-func (fs *ForwardServer) hasChannel(conn *gossh.ServerConn) bool {
+func (fs *ForwardServer) getByConn(conn *gossh.ServerConn) *ForwardDest {
 	for _, fw := range fs.ForwardsMap {
 		if fw.Conn == conn {
-			return true
+			return fw
 		}
 	}
-	return false
+	return nil
 }
 
 func NewForwardServers() *ForwardServers {

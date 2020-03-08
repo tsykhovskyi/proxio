@@ -10,7 +10,7 @@ import (
 func main() {
 	config := parseFlags()
 
-	server.StartSSHServer(config)
+	server.Start(config)
 }
 
 func parseFlags() *server.Configs {

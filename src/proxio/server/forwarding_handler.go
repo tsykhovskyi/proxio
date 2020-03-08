@@ -30,11 +30,11 @@ type remoteForwardCancelRequest struct {
 	BindPort uint32
 }
 
-type Balancer struct {
+type SSHForwardingHandler struct {
 	servers *ForwardServers
 }
 
-func (b *Balancer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh.Request) (bool, []byte) {
+func (h *SSHForwardingHandler) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh.Request) (bool, []byte) {
 	conn := ctx.Value(ssh.ContextKeyConn).(*gossh.ServerConn)
 	switch req.Type {
 	case "prepare-tcpip-forward":
@@ -44,7 +44,7 @@ func (b *Balancer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh
 			return false, []byte{}
 		}
 
-		b.servers.AdjustNewForward(ctx, reqPayload.BindAddr, reqPayload.BindPort, conn, reqPayload)
+		h.servers.AdjustNewForward(ctx, reqPayload.BindAddr, reqPayload.BindPort, conn, reqPayload)
 
 		return true, gossh.Marshal(&remoteForwardSuccess{reqPayload.BindPort})
 	case "tcpip-forward":
@@ -55,11 +55,12 @@ func (b *Balancer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh
 		}
 
 		// problem with ssh lib that send 127.0.0.1 instead of localhost
-		if b.servers.HasConnectionOnPort(conn, reqPayload.BindPort) {
+		if h.servers.HasConnectionOnPort(conn, reqPayload.BindPort) {
+			h.servers.UpdatePayloadConnectionOnPort(conn, reqPayload.BindPort, reqPayload)
 			return true, gossh.Marshal(&remoteForwardSuccess{reqPayload.BindPort})
 		}
 
-		b.servers.AdjustNewForward(ctx, reqPayload.BindAddr, reqPayload.BindPort, conn, reqPayload)
+		h.servers.AdjustNewForward(ctx, reqPayload.BindAddr, reqPayload.BindPort, conn, reqPayload)
 		return true, gossh.Marshal(&remoteForwardSuccess{reqPayload.BindPort})
 
 	case "cancel-tcpip-forward":
@@ -69,8 +70,8 @@ func (b *Balancer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh
 			return false, []byte{}
 		}
 		// addr := net.JoinHostPort(reqPayload.BindAddr, strconv.Itoa(int(reqPayload.BindPort)))
-		// ln, ok := b.forwards[addr]
-		// b.Unlock()
+		// ln, ok := h.forwards[addr]
+		// h.Unlock()
 		// if ok {
 		// 	ln.Close()
 		// }
@@ -80,8 +81,8 @@ func (b *Balancer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh
 	}
 }
 
-func NewBalancer(servers *ForwardServers) *Balancer {
-	b := &Balancer{
+func NewForwardingHandler(servers *ForwardServers) *SSHForwardingHandler {
+	b := &SSHForwardingHandler{
 		servers: servers,
 	}
 

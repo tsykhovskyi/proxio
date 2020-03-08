@@ -9,16 +9,15 @@ import (
 	"strconv"
 )
 
-func StartSSHServer(configs *Configs) {
-	handler := func(s ssh.Session) {
-		key := gossh.MarshalAuthorizedKey(s.PublicKey())
-		out := fmt.Sprintf("Hi, %s\n", key)
-		io.WriteString(s, out)
-	}
-
+func Start(configs *Configs) {
 	s := &ssh.Server{
-		Addr:    ":" + strconv.Itoa(int(configs.SshPort)),
-		Handler: handler,
+		Addr: ":" + strconv.Itoa(int(configs.SshPort)),
+		Handler: func(session ssh.Session) {
+			key := gossh.MarshalAuthorizedKey(session.PublicKey())
+			out := fmt.Sprintf("Hi, %s\n", key)
+			io.WriteString(session, out)
+			select {}
+		},
 		LocalPortForwardingCallback: func(ctx ssh.Context, destinationHost string, destinationPort uint32) bool {
 			return true
 		},
@@ -39,11 +38,11 @@ func StartSSHServer(configs *Configs) {
 
 	servers := NewForwardServers()
 
-	balancer := NewBalancer(servers)
+	forwardingHandler := NewForwardingHandler(servers)
 	s.RequestHandlers = map[string]ssh.RequestHandler{
-		"prepare-tcpip-forward": balancer.HandleSSHRequest, // custom type, sending from client application
-		"tcpip-forward":         balancer.HandleSSHRequest,
-		"cancel-tcpip-forward":  balancer.HandleSSHRequest,
+		"prepare-tcpip-forward": forwardingHandler.HandleSSHRequest, // custom type, sending from client application
+		"tcpip-forward":         forwardingHandler.HandleSSHRequest,
+		"cancel-tcpip-forward":  forwardingHandler.HandleSSHRequest,
 	}
 
 	s.ChannelHandlers = ssh.DefaultChannelHandlers
