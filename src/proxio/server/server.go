@@ -6,9 +6,10 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 	"io"
 	"log"
+	"strconv"
 )
 
-func StartSSHServer(port string, serverKeyPath string) {
+func StartSSHServer(configs *Configs) {
 	handler := func(s ssh.Session) {
 		key := gossh.MarshalAuthorizedKey(s.PublicKey())
 		out := fmt.Sprintf("Hi, %s\n", key)
@@ -16,7 +17,7 @@ func StartSSHServer(port string, serverKeyPath string) {
 	}
 
 	s := &ssh.Server{
-		Addr:    ":" + port,
+		Addr:    ":" + strconv.Itoa(int(configs.SshPort)),
 		Handler: handler,
 		LocalPortForwardingCallback: func(ctx ssh.Context, destinationHost string, destinationPort uint32) bool {
 			return true
@@ -34,7 +35,7 @@ func StartSSHServer(port string, serverKeyPath string) {
 			return true
 		},
 	}
-	s.AddHostKey(publicKeyFile(serverKeyPath))
+	s.AddHostKey(publicKeyFile(configs.PrivateKeyPath))
 
 	servers := NewForwardServers()
 
