@@ -4,19 +4,19 @@ import (
 	"bufio"
 	"context"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"strconv"
 )
 
 type Balancer struct {
-	servers map[uint32]*ForwardServer
+	httpHandler http.Handler
+	forwardsMap map[ForwardAddress]*ForwardDest
 }
 
 type ForwardAddress string
 
-type ForwardServer struct {
+type HttpForwardServer struct {
 	Server      *http.Server
 	ForwardsMap map[ForwardAddress]*ForwardDest
 }
@@ -32,49 +32,31 @@ type Tunnel interface {
 	ReadWriteCloser(DestAddr string, DestPort uint32, OriginAddr string, OriginPort uint32) io.ReadWriteCloser
 }
 
-func (fss *Balancer) HasTunnelOnPort(port uint32, tunnel Tunnel) bool {
-	return fss.servers[port] != nil && fss.servers[port].getByTunnel(tunnel) != nil
+func (b *Balancer) HasTunnelOnPort(port uint32, tunnel Tunnel) bool {
+	return b.getByTunnel(tunnel) != nil
 }
 
-func (fss *Balancer) UpdatePayloadConnectionOnPort(port uint32, reqPayload remoteForwardRequest, tunnel Tunnel) {
-	dest := fss.servers[port].getByTunnel(tunnel)
-	dest.Addr = reqPayload.BindAddr
-	dest.Port = reqPayload.BindPort
+func (b *Balancer) UpdatePayloadConnectionOnPort(tunnel Tunnel, addr string, port uint32) {
+	dest := b.getByTunnel(tunnel)
+	dest.Addr = addr
+	dest.Port = port
 }
 
-func (fss *Balancer) AdjustNewForward(ctx context.Context, addr string, port uint32, tunnel Tunnel) {
-	if _, ok := fss.servers[port]; !ok {
-		fs := &ForwardServer{ForwardsMap: make(map[ForwardAddress]*ForwardDest, 0)}
-
-		fs.Server = &http.Server{
-			Addr:    ":" + strconv.Itoa(int(port)),
-			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fs.ServeHttp(w, r) }),
-		}
-		// _ = fs.Server.Shutdown(ctx)
-		go func() {
-			err := fs.Server.ListenAndServe()
-			if err != nil {
-				log.Fatal(err)
-			}
-		}()
-
-		fss.servers[port] = fs
-	}
-
-	fss.servers[port].addConn(addr, port, tunnel)
+func (b *Balancer) AdjustNewForward(ctx context.Context, addr string, port uint32, tunnel Tunnel) {
+	b.addConn(addr, port, tunnel)
 }
 
-func (fs *ForwardServer) ServeHttp(w http.ResponseWriter, r *http.Request) {
-	destAddr, _, _ := net.SplitHostPort(r.Host)
+func (b *Balancer) ServeHttp(w http.ResponseWriter, r *http.Request) {
+	destAddr := r.Host
 
-	if _, ok := fs.ForwardsMap[ForwardAddress(destAddr)]; !ok {
+	if _, ok := b.forwardsMap[ForwardAddress(destAddr)]; !ok {
 		return
 	}
 
 	originAddr, originPortStr, _ := net.SplitHostPort(r.RemoteAddr)
 	originPort, _ := strconv.Atoi(originPortStr)
 
-	forward := fs.ForwardsMap[ForwardAddress(destAddr)]
+	forward := b.forwardsMap[ForwardAddress(destAddr)]
 
 	tunnel := forward.Tunnel
 
@@ -100,16 +82,16 @@ func (fs *ForwardServer) ServeHttp(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (fs *ForwardServer) addConn(addr string, port uint32, tunnel Tunnel) {
-	fs.ForwardsMap[ForwardAddress(addr)] = &ForwardDest{
+func (b *Balancer) addConn(addr string, port uint32, tunnel Tunnel) {
+	b.forwardsMap[ForwardAddress(addr)] = &ForwardDest{
 		Addr:   addr,
 		Port:   port,
 		Tunnel: tunnel,
 	}
 }
 
-func (fs *ForwardServer) getByTunnel(tunnel Tunnel) *ForwardDest {
-	for _, fw := range fs.ForwardsMap {
+func (b *Balancer) getByTunnel(tunnel Tunnel) *ForwardDest {
+	for _, fw := range b.forwardsMap {
 		if fw.Tunnel.Id() == tunnel.Id() {
 			return fw
 		}
@@ -118,5 +100,10 @@ func (fs *ForwardServer) getByTunnel(tunnel Tunnel) *ForwardDest {
 }
 
 func NewBalancer() *Balancer {
-	return &Balancer{servers: make(map[uint32]*ForwardServer)}
+	balancer := &Balancer{
+		forwardsMap: make(map[ForwardAddress]*ForwardDest, 0),
+	}
+	balancer.httpHandler = http.HandlerFunc(balancer.ServeHttp)
+
+	return balancer
 }

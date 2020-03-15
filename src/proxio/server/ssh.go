@@ -34,12 +34,14 @@ type remoteForwardCancelRequest struct {
 }
 
 type SSHForwardHandler struct {
-	balancer *Balancer
+	balancer   *Balancer
+	port       uint32
+	privateKey string
 }
 
-func (h *SSHForwardHandler) Start(port uint32, privateKey string) error {
+func (h *SSHForwardHandler) Start() error {
 	s := &ssh.Server{
-		Addr: ":" + strconv.Itoa(int(port)),
+		Addr: ":" + strconv.Itoa(int(h.port)),
 		Handler: func(session ssh.Session) {
 			key := gossh.MarshalAuthorizedKey(session.PublicKey())
 			out := fmt.Sprintf("Hi, %s\n", key)
@@ -62,7 +64,7 @@ func (h *SSHForwardHandler) Start(port uint32, privateKey string) error {
 			return true
 		},
 	}
-	s.AddHostKey(publicKeyFile(privateKey))
+	s.AddHostKey(publicKeyFile(h.privateKey))
 
 	s.RequestHandlers = map[string]ssh.RequestHandler{
 		"prepare-tcpip-forward": h.handleSSHRequest, // custom type, sending from client application
@@ -100,7 +102,7 @@ func (h *SSHForwardHandler) handleSSHRequest(ctx ssh.Context, srv *ssh.Server, r
 
 		// problem with ssh lib that send 127.0.0.1 instead of localhost
 		if h.balancer.HasTunnelOnPort(reqPayload.BindPort, tunnel) {
-			h.balancer.UpdatePayloadConnectionOnPort(reqPayload.BindPort, reqPayload, tunnel)
+			h.balancer.UpdatePayloadConnectionOnPort(tunnel, reqPayload.BindAddr, reqPayload.BindPort)
 			return true, gossh.Marshal(&remoteForwardSuccess{reqPayload.BindPort})
 		}
 
@@ -151,9 +153,11 @@ func (st *SshTunnel) ReadWriteCloser(destAddr string, destPort uint32, originAdd
 	return channel
 }
 
-func NewSshForwardHandler(servers *Balancer) *SSHForwardHandler {
+func NewSshForwardHandler(balancer *Balancer, port uint32, privateKey string) *SSHForwardHandler {
 	b := &SSHForwardHandler{
-		balancer: servers,
+		balancer:   balancer,
+		port:       port,
+		privateKey: privateKey,
 	}
 
 	return b
