@@ -10,8 +10,7 @@ const (
 	statusCancelled
 )
 
-func newMessage(req *http.Request) *Message {
-	messageCounter++
+func newMessage(messageCounter int, req *http.Request) *Message {
 	return &Message{
 		Id:        messageCounter,
 		Request:   req,

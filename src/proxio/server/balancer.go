@@ -68,7 +68,7 @@ func (b *Balancer) ServeHttp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bufRead := bufio.NewReader(ch)
-	res, err := http.ReadResponse(bufRead, nil)
+	res, err := http.ReadResponse(bufRead, r)
 	if nil != err {
 		panic(err)
 	}
