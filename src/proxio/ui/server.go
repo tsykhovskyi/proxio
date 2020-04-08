@@ -5,7 +5,7 @@ import (
 	"proxio/client"
 )
 
-func Serve(addr string, messagesChan chan *client.Message) {
+func Serve(addr string, messagesChan chan *client.Message) http.Handler {
 	connectionPool := NewConnectionPool()
 	storage := NewStorage()
 
@@ -25,7 +25,8 @@ func Serve(addr string, messagesChan chan *client.Message) {
 		connection := serveWs(w, r, connectionPool.closeChan)
 		connectionPool.NewConnection(connection)
 	})
-	go func() {
-		panic(http.ListenAndServe(addr, mux))
-	}()
+	// go func() {
+	// 	panic(http.ListenAndServe(addr, mux))
+	// }()
+	return mux
 }

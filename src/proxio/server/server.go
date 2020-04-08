@@ -19,14 +19,15 @@ func Start(configs *Configs) {
 
 	messagesChan := make(chan *client.Message, 1)
 	trackedSubDomainBalancer := client.TrafficMiddleware(messagesChan, balancer.httpHandler)
-	ui.Serve(":4000", messagesChan)
+	uiTrackHandler := ui.Serve(":4000", messagesChan)
 
 	splitHandler := SubDomainMiddleware(
 		trackedSubDomainBalancer,
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("<h1>Forward path not found</h1>"))
-		}),
+		// http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 	w.WriteHeader(http.StatusNotFound)
+		// 	w.Write([]byte("<h1>Forward path not found</h1>"))
+		// }),
+		uiTrackHandler,
 	)
 
 	httpServer := &http.Server{
