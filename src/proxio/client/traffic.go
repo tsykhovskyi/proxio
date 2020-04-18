@@ -8,9 +8,7 @@ import (
 	"net/http/httptest"
 )
 
-type TrafficPublisher interface {
-	GetTraffic() chan *Message
-}
+type Traffic chan *Message
 
 type TrafficTracker struct {
 	messages   chan *Message

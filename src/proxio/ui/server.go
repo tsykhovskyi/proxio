@@ -5,12 +5,12 @@ import (
 	"proxio/client"
 )
 
-func Handler(publisher client.TrafficPublisher) http.Handler {
+func Handler(traffic client.Traffic) http.Handler {
 	connectionPool := NewConnectionPool()
 	storage := NewStorage()
 
 	go func() {
-		for m := range publisher.GetTraffic() {
+		for m := range traffic {
 			storage.Add(m)
 			connectionPool.BroadcastMessage(m.GetContext())
 		}
