@@ -33,13 +33,13 @@ type remoteForwardCancelRequest struct {
 	BindPort uint32
 }
 
-type SSHForwardHandler struct {
+type SSHForwardServer struct {
 	balancer   *Balancer
 	port       uint32
 	privateKey string
 }
 
-func (h *SSHForwardHandler) Start() error {
+func (h *SSHForwardServer) Start() error {
 	s := &ssh.Server{
 		Addr: ":" + strconv.Itoa(int(h.port)),
 		Handler: func(session ssh.Session) {
@@ -78,7 +78,7 @@ func (h *SSHForwardHandler) Start() error {
 	return s.ListenAndServe()
 }
 
-func (h *SSHForwardHandler) handleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh.Request) (bool, []byte) {
+func (h *SSHForwardServer) handleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh.Request) (bool, []byte) {
 	conn := ctx.Value(ssh.ContextKeyConn).(*gossh.ServerConn)
 	tunnel := &SshTunnel{conn}
 
@@ -153,8 +153,8 @@ func (st *SshTunnel) ReadWriteCloser(destAddr string, destPort uint32, originAdd
 	return channel
 }
 
-func NewSshForwardHandler(balancer *Balancer, port uint32, privateKey string) *SSHForwardHandler {
-	b := &SSHForwardHandler{
+func NewSshForwardServer(balancer *Balancer, port uint32, privateKey string) *SSHForwardServer {
+	b := &SSHForwardServer{
 		balancer:   balancer,
 		port:       port,
 		privateKey: privateKey,

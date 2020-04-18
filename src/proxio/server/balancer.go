@@ -46,7 +46,7 @@ func (b *Balancer) AdjustNewForward(ctx context.Context, addr string, port uint3
 	b.addConn(addr, port, tunnel)
 }
 
-func (b *Balancer) ServeHttp(w http.ResponseWriter, r *http.Request) {
+func (b *Balancer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	destAddr := r.Host
 
 	if _, ok := b.forwardsMap[ForwardAddress(destAddr)]; !ok {
@@ -103,7 +103,7 @@ func NewBalancer() *Balancer {
 	balancer := &Balancer{
 		forwardsMap: make(map[ForwardAddress]*ForwardDest, 0),
 	}
-	balancer.httpHandler = http.HandlerFunc(balancer.ServeHttp)
+	balancer.httpHandler = http.HandlerFunc(balancer.ServeHTTP)
 
 	return balancer
 }
