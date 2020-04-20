@@ -13,7 +13,7 @@ func Main() {
 
 	balancer := NewBalancer()
 	sshServer := NewSshForwardServer(balancer, configs.SshPort, configs.PrivateKeyPath)
-	httpTrafficHandler := client.NewTrafficTracker(balancer)
+	httpTrafficHandler := client.NewTrafficTracker(sshServer)
 	uiHandler := ui.Handler(httpTrafficHandler.GetTraffic())
 	httpServer := NewHttpServer(httpTrafficHandler, uiHandler)
 
