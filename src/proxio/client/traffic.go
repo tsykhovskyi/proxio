@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 )
 
 type Traffic chan *Message
@@ -13,10 +12,10 @@ type Traffic chan *Message
 type TrafficTracker struct {
 	messages   chan *Message
 	messageCnt int
-	origin     http.Handler
+	messageBuf map[*http.Request]*Message
 }
 
-func (tt *TrafficTracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (tt *TrafficTracker) RequestStarted(r *http.Request) {
 	tt.messageCnt += 1
 	message := newMessage(tt.messageCnt, r)
 	if nil != r.Body {
@@ -28,32 +27,33 @@ func (tt *TrafficTracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		message.RequestBody = bodyBytes
 		r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 	}
-
 	handleMessageUpdate(tt.messages, message)
+	tt.messageBuf[r] = message
+}
 
-	writerRecorder := httptest.NewRecorder()
-	tt.origin.ServeHTTP(writerRecorder, r)
-
-	resp := writerRecorder.Result()
-	message.StopTimer()
-
-	bodyBytes := writerRecorder.Body.Bytes()
-	message.Response = resp
-	message.ResponseBody = bodyBytes
-	handleMessageUpdate(tt.messages, message)
-
-	for k, v := range writerRecorder.Header() {
-		w.Header()[k] = v
+func (tt *TrafficTracker) RequestFinished(r *http.Request, response *http.Response) {
+	message := tt.messageBuf[r]
+	if message == nil {
+		panic("")
 	}
-	w.Write(bodyBytes)
+	message.StopTimer()
+	message.Response = response
+	// todo dump response body to message
+	// httputil.DumpResponse()
+	// message.ResponseBody =
+	handleMessageUpdate(tt.messages, message)
 }
 
 func (tt *TrafficTracker) GetTraffic() chan *Message {
 	return tt.messages
 }
 
-func NewTrafficTracker(origin http.Handler) *TrafficTracker {
-	return &TrafficTracker{messages: make(chan *Message), messageCnt: 0, origin: origin}
+func NewTrafficTracker() *TrafficTracker {
+	return &TrafficTracker{
+		messages:   make(chan *Message),
+		messageCnt: 0,
+		messageBuf: make(map[*http.Request]*Message),
+	}
 }
 
 func handleMessageUpdate(messages chan *Message, message *Message) {

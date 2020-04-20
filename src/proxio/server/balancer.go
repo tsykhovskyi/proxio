@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"net/http"
 )
 
@@ -23,7 +22,7 @@ type ForwardDest struct {
 	TunnelId string
 }
 
-func (b *Balancer) AdjustNewForward(ctx context.Context, addr string, port uint32, tunnelId string) {
+func (b *Balancer) AdjustNewForward(addr string, port uint32, tunnelId string) {
 	b.forwardsMap[ForwardAddress(addr)] = &ForwardDest{
 		Addr:     addr,
 		Port:     port,

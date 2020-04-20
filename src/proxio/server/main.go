@@ -12,10 +12,10 @@ func Main() {
 	configs := config.ParseApplicationArgs()
 
 	balancer := NewBalancer()
-	sshServer := NewSshForwardServer(balancer, configs.SshPort, configs.PrivateKeyPath)
-	httpTrafficHandler := client.NewTrafficTracker(sshServer)
+	httpTrafficHandler := client.NewTrafficTracker()
+	sshServer := NewSshForwardServer(balancer, httpTrafficHandler, configs.SshPort, configs.PrivateKeyPath)
 	uiHandler := ui.Handler(httpTrafficHandler.GetTraffic())
-	httpServer := NewHttpServer(httpTrafficHandler, uiHandler)
+	httpServer := NewHttpServer(sshServer, uiHandler)
 
 	var (
 		wg  sync.WaitGroup

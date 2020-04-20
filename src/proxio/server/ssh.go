@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"proxio/client"
 	"strconv"
 )
 import gossh "golang.org/x/crypto/ssh"
@@ -38,6 +39,7 @@ type remoteForwardCancelRequest struct {
 
 type SSHForwardServer struct {
 	balancer   *Balancer
+	tracker    *client.TrafficTracker
 	port       uint32
 	privateKey string
 	tunnels    map[string]*SshTunnel
@@ -101,7 +103,7 @@ func (sfs *SSHForwardServer) handleSSHRequest(ctx ssh.Context, srv *ssh.Server, 
 		}
 
 		sfs.addTunnel(tunnel)
-		sfs.balancer.AdjustNewForward(ctx, reqPayload.BindAddr, reqPayload.BindPort, tunnel.Id())
+		sfs.balancer.AdjustNewForward(reqPayload.BindAddr, reqPayload.BindPort, tunnel.Id())
 		return true, gossh.Marshal(&remoteForwardSuccess{reqPayload.BindPort})
 
 	case "cancel-tcpip-forward":
@@ -124,16 +126,17 @@ func (sfs *SSHForwardServer) handleSSHRequest(ctx ssh.Context, srv *ssh.Server, 
 }
 
 func (sfs *SSHForwardServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	destAddr := r.Host
-
-	dest := sfs.balancer.GetByAddress(destAddr)
+	dest := sfs.balancer.GetByAddress(r.Host)
 	if nil == dest {
+		ProxyNotFound(w)
 		return
 	}
 	tunnel := sfs.getTunnel(dest.TunnelId)
 	if nil == tunnel {
 		panic("tunnel not found while ssh-forwarding")
 	}
+
+	sfs.tracker.RequestStarted(r)
 	tunnel.session.Write([]byte("You have serve traffic\n"))
 
 	originAddr, originPortStr, _ := net.SplitHostPort(r.RemoteAddr)
@@ -151,6 +154,8 @@ func (sfs *SSHForwardServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if nil != err {
 		panic(err)
 	}
+
+	sfs.tracker.RequestFinished(r, res)
 
 	for key, header := range res.Header {
 		w.Header().Set(key, header[0])
@@ -198,11 +203,12 @@ func (st *SshTunnel) GetChannel(destAddr string, destPort uint32, originAddr str
 	return channel
 }
 
-func NewSshForwardServer(balancer *Balancer, port uint32, privateKey string) *SSHForwardServer {
+func NewSshForwardServer(balancer *Balancer, tracker *client.TrafficTracker, port uint32, privateKey string) *SSHForwardServer {
 	b := &SSHForwardServer{
 		balancer:   balancer,
 		port:       port,
 		privateKey: privateKey,
+		tracker:    tracker,
 		tunnels:    make(map[string]*SshTunnel),
 	}
 
