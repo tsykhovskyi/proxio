@@ -37,11 +37,12 @@ type remoteForwardCancelRequest struct {
 }
 
 type SSHForwardServer struct {
-	balancer   *Balancer
-	tracker    *client.TrafficTracker
-	port       uint32
-	privateKey string
-	tunnels    map[string]*SshTunnel
+	balancer     *Balancer
+	tracker      *client.TrafficTracker
+	tunnels      map[string]*SshTunnel
+	tunnelErrors map[string]string
+	port         uint32
+	privateKey   string
 }
 
 func (sfs *SSHForwardServer) Start() error {
@@ -49,12 +50,20 @@ func (sfs *SSHForwardServer) Start() error {
 		Addr: ":" + strconv.Itoa(int(sfs.port)),
 		Handler: func(session ssh.Session) {
 			_ = gossh.MarshalAuthorizedKey(session.PublicKey())
-
-			conn := session.Context().Value(ssh.ContextKeyConn).(*gossh.ServerConn)
-			tunnel := sfs.getTunnel(string(conn.SessionID()))
-			if tunnel == nil {
-				panic("tunnel not found")
+			sessid := session.Context().Value(ssh.ContextKeySessionID).(string)
+			if err, found := sfs.tunnelErrors[sessid]; found {
+				delete(sfs.tunnelErrors, sessid)
+				session.Write([]byte(err + "\n"))
+				session.Close()
+				return
 			}
+
+			tunnel := sfs.getTunnel(sessid)
+			if tunnel == nil {
+				session.Write([]byte("Proxy was not established\n"))
+				return
+			}
+
 			tunnel.session = session
 
 			select {}
@@ -78,9 +87,8 @@ func (sfs *SSHForwardServer) Start() error {
 	s.AddHostKey(publicKeyFile(sfs.privateKey))
 
 	s.RequestHandlers = map[string]ssh.RequestHandler{
-		"prepare-tcpip-forward": sfs.handleSSHRequest, // custom type, sending from client application
-		"tcpip-forward":         sfs.handleSSHRequest,
-		"cancel-tcpip-forward":  sfs.handleSSHRequest,
+		"tcpip-forward":        sfs.handleSSHRequest,
+		"cancel-tcpip-forward": sfs.handleSSHRequest,
 	}
 
 	s.ChannelHandlers = ssh.DefaultChannelHandlers
@@ -90,8 +98,10 @@ func (sfs *SSHForwardServer) Start() error {
 }
 
 func (sfs *SSHForwardServer) handleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh.Request) (bool, []byte) {
-	conn := ctx.Value(ssh.ContextKeyConn).(*gossh.ServerConn)
-	tunnel := &SshTunnel{conn: conn}
+	tunnel := &SshTunnel{
+		sessionId: ctx.Value(ssh.ContextKeySessionID).(string),
+		conn:      ctx.Value(ssh.ContextKeyConn).(*gossh.ServerConn),
+	}
 
 	switch req.Type {
 	case "tcpip-forward":
@@ -100,9 +110,12 @@ func (sfs *SSHForwardServer) handleSSHRequest(ctx ssh.Context, srv *ssh.Server, 
 			// TODO: log parse failure
 			return false, []byte{}
 		}
-
+		if _, err := sfs.balancer.ValidateRequestDomain(reqPayload.BindAddr, reqPayload.BindPort); err != "" {
+			sfs.tunnelErrors[tunnel.sessionId] = err
+			return false, nil
+		}
 		sfs.addTunnel(tunnel)
-		sfs.balancer.AdjustNewForward(reqPayload.BindAddr, reqPayload.BindPort, tunnel.Id())
+		sfs.balancer.AdjustNewForward(reqPayload.BindAddr, reqPayload.BindPort, tunnel.sessionId)
 		return true, gossh.Marshal(&remoteForwardSuccess{reqPayload.BindPort})
 
 	case "cancel-tcpip-forward":
@@ -111,12 +124,6 @@ func (sfs *SSHForwardServer) handleSSHRequest(ctx ssh.Context, srv *ssh.Server, 
 			// TODO: log parse failure
 			return false, []byte{}
 		}
-		// addr := net.JoinHostPort(reqPayload.BindAddr, strconv.Itoa(int(reqPayload.BindPort)))
-		// ln, ok := sfs.forwards[addr]
-		// sfs.Unlock()
-		// if ok {
-		// 	ln.Close()
-		// }
 
 		return true, nil
 	default:
@@ -141,7 +148,7 @@ func (sfs *SSHForwardServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	originAddr, originPortStr, _ := net.SplitHostPort(r.RemoteAddr)
 	originPort, _ := strconv.Atoi(originPortStr)
 
-	ch, err := tunnel.GetChannel(dest.Addr, dest.Port, originAddr, uint32(originPort))
+	ch, err := tunnel.GetChannel(dest.RequestedAddr, dest.Port, originAddr, uint32(originPort))
 	if err != nil {
 		RemoteServerNotFound(w)
 		return
@@ -171,7 +178,7 @@ func (sfs *SSHForwardServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (sfs *SSHForwardServer) addTunnel(tunnel *SshTunnel) {
-	sfs.tunnels[tunnel.Id()] = tunnel
+	sfs.tunnels[tunnel.sessionId] = tunnel
 }
 
 func (sfs *SSHForwardServer) getTunnel(id string) *SshTunnel {
@@ -179,12 +186,9 @@ func (sfs *SSHForwardServer) getTunnel(id string) *SshTunnel {
 }
 
 type SshTunnel struct {
-	conn    *gossh.ServerConn
-	session ssh.Session
-}
-
-func (st *SshTunnel) Id() string {
-	return string(st.conn.SessionID())
+	sessionId string
+	conn      *gossh.ServerConn
+	session   ssh.Session
 }
 
 func (st *SshTunnel) GetChannel(destAddr string, destPort uint32, originAddr string, originPort uint32) (io.ReadWriteCloser, error) {
@@ -205,13 +209,12 @@ func (st *SshTunnel) GetChannel(destAddr string, destPort uint32, originAddr str
 }
 
 func NewSshForwardServer(balancer *Balancer, tracker *client.TrafficTracker, port uint32, privateKey string) *SSHForwardServer {
-	b := &SSHForwardServer{
-		balancer:   balancer,
-		port:       port,
-		privateKey: privateKey,
-		tracker:    tracker,
-		tunnels:    make(map[string]*SshTunnel),
+	return &SSHForwardServer{
+		balancer:     balancer,
+		port:         port,
+		privateKey:   privateKey,
+		tracker:      tracker,
+		tunnels:      make(map[string]*SshTunnel),
+		tunnelErrors: make(map[string]string),
 	}
-
-	return b
 }

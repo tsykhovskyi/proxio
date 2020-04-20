@@ -21,9 +21,9 @@ func RemoteServerNotFound(w http.ResponseWriter) {
 }
 
 func httpError(w http.ResponseWriter, statusCode int, error string) {
-	_, err := w.Write([]byte(error))
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(statusCode)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, err := w.Write([]byte(error))
 	if err != nil {
 		panic(err)
 	}
