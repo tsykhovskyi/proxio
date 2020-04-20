@@ -37,10 +37,18 @@ func (tt *TrafficTracker) RequestFinished(r *http.Request, response *http.Respon
 		panic("")
 	}
 	message.StopTimer()
+
 	message.Response = response
-	// todo dump response body to message
-	// httputil.DumpResponse()
-	// message.ResponseBody =
+	if nil != response.Body {
+		bodyBytes, err := ioutil.ReadAll(response.Body)
+		response.Body.Close()
+		if err != nil {
+			fmt.Println("Error reading response stream", err.Error())
+		}
+		message.ResponseBody = bodyBytes
+		response.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+	}
+
 	handleMessageUpdate(tt.messages, message)
 }
 

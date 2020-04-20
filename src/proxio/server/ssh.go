@@ -160,6 +160,7 @@ func (sfs *SSHForwardServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for key, header := range res.Header {
 		w.Header().Set(key, header[0])
 	}
+	w.WriteHeader(res.StatusCode)
 	_, err = io.Copy(w, res.Body)
 	if err != nil {
 		panic(err)
