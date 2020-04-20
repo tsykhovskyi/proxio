@@ -2,7 +2,6 @@ package server
 
 import (
 	"bufio"
-	"fmt"
 	"github.com/gliderlabs/ssh"
 	"io"
 	"net"
@@ -142,9 +141,13 @@ func (sfs *SSHForwardServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	originAddr, originPortStr, _ := net.SplitHostPort(r.RemoteAddr)
 	originPort, _ := strconv.Atoi(originPortStr)
 
-	ch := tunnel.GetChannel(dest.Addr, dest.Port, originAddr, uint32(originPort))
+	ch, err := tunnel.GetChannel(dest.Addr, dest.Port, originAddr, uint32(originPort))
+	if err != nil {
+		RemoteServerNotFound(w)
+		return
+	}
 
-	err := r.WriteProxy(ch)
+	err = r.WriteProxy(ch)
 	if nil != err {
 		panic(err)
 	}
@@ -184,7 +187,7 @@ func (st *SshTunnel) Id() string {
 	return string(st.conn.SessionID())
 }
 
-func (st *SshTunnel) GetChannel(destAddr string, destPort uint32, originAddr string, originPort uint32) io.ReadWriteCloser {
+func (st *SshTunnel) GetChannel(destAddr string, destPort uint32, originAddr string, originPort uint32) (io.ReadWriteCloser, error) {
 	payload := gossh.Marshal(&remoteForwardChannelData{
 		DestAddr:   destAddr,
 		DestPort:   destPort,
@@ -193,15 +196,12 @@ func (st *SshTunnel) GetChannel(destAddr string, destPort uint32, originAddr str
 	})
 
 	channel, reqs, err := st.conn.OpenChannel(forwardedTCPChannelType, payload)
-	sessId := st.conn.SessionID()
-	fmt.Printf("%s\n", sessId)
-
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	go gossh.DiscardRequests(reqs)
 
-	return channel
+	return channel, nil
 }
 
 func NewSshForwardServer(balancer *Balancer, tracker *client.TrafficTracker, port uint32, privateKey string) *SSHForwardServer {
