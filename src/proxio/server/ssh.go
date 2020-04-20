@@ -47,13 +47,15 @@ func (sfs *SSHForwardServer) Start() error {
 	s := &ssh.Server{
 		Addr: ":" + strconv.Itoa(int(sfs.port)),
 		Handler: func(session ssh.Session) {
-			key := gossh.MarshalAuthorizedKey(session.PublicKey())
-			out := fmt.Sprintf("Hi, %s\n", key)
-			// session.Write([]byte(out))
+			_ = gossh.MarshalAuthorizedKey(session.PublicKey())
+
 			conn := session.Context().Value(ssh.ContextKeyConn).(*gossh.ServerConn)
-			fmt.Printf("%s\n", string(conn.SessionID()))
-			io.WriteString(session, out)
-			// todo handle saving session related to conn
+			tunnel := sfs.getTunnel(string(conn.SessionID()))
+			if tunnel == nil {
+				panic("tunnel not found")
+			}
+			tunnel.session = session
+
 			select {}
 		},
 		LocalPortForwardingCallback: func(ctx ssh.Context, destinationHost string, destinationPort uint32) bool {
@@ -88,31 +90,15 @@ func (sfs *SSHForwardServer) Start() error {
 
 func (sfs *SSHForwardServer) handleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh.Request) (bool, []byte) {
 	conn := ctx.Value(ssh.ContextKeyConn).(*gossh.ServerConn)
-	// sessionId := ctx.Value(ssh.ContextKeySessionID).(string)
 	tunnel := &SshTunnel{conn: conn}
 
 	switch req.Type {
-	// case "prepare-tcpip-forward":
-	// 	var reqPayload remoteForwardRequest
-	// 	if err := gossh.Unmarshal(req.Payload, &reqPayload); err != nil {
-	// 		return false, []byte{}
-	// 	}
-	//
-	// 	sfs.balancer.AdjustNewForward(ctx, reqPayload.BindAddr, reqPayload.BindPort, tunnel)
-	//
-	// 	return true, gossh.Marshal(&remoteForwardSuccess{reqPayload.BindPort})
 	case "tcpip-forward":
 		var reqPayload remoteForwardRequest
 		if err := gossh.Unmarshal(req.Payload, &reqPayload); err != nil {
 			// TODO: log parse failure
 			return false, []byte{}
 		}
-
-		// problem with ssh lib that send 127.0.0.1 instead of localhost
-		// if sfs.balancer.HasTunnelOnPort(reqPayload.BindPort, tunnel) {
-		// 	sfs.balancer.UpdatePayloadConnectionOnPort(tunnel, reqPayload.BindAddr, reqPayload.BindPort)
-		// 	return true, gossh.Marshal(&remoteForwardSuccess{reqPayload.BindPort})
-		// }
 
 		sfs.addTunnel(tunnel)
 		sfs.balancer.AdjustNewForward(ctx, reqPayload.BindAddr, reqPayload.BindPort, tunnel.Id())
@@ -144,11 +130,14 @@ func (sfs *SSHForwardServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if nil == dest {
 		return
 	}
+	tunnel := sfs.getTunnel(dest.TunnelId)
+	if nil == tunnel {
+		panic("tunnel not found while ssh-forwarding")
+	}
+	tunnel.session.Write([]byte("You have serve traffic\n"))
 
 	originAddr, originPortStr, _ := net.SplitHostPort(r.RemoteAddr)
 	originPort, _ := strconv.Atoi(originPortStr)
-
-	tunnel := sfs.getTunnel(dest.TunnelId)
 
 	ch := tunnel.GetChannel(dest.Addr, dest.Port, originAddr, uint32(originPort))
 
