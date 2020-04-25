@@ -7,7 +7,7 @@ import (
 type ForwardDomain string
 
 func (domain ForwardDomain) Subdomain(originDomain string) string {
-	return ""
+	return strings.TrimSuffix(string(domain), originDomain)
 }
 
 type Balancer struct {
@@ -17,7 +17,6 @@ type Balancer struct {
 
 type Proxy struct {
 	RequestedAddr string
-	RealAddr      string
 	Port          uint32
 	TunnelId      string
 }
@@ -33,14 +32,25 @@ func (b *Balancer) ValidateRequestDomain(addr string, port uint32) (bool, string
 	return true, ""
 }
 
-func (b *Balancer) AdjustNewForward(addr string, port uint32, tunnelId string) {
-	realaddr := "subdomain2.localhost"
-	b.forwardsMap[ForwardDomain(realaddr)] = &Proxy{
-		RequestedAddr: addr,
-		RealAddr:      realaddr,
-		Port:          port,
-		TunnelId:      tunnelId,
+func (b *Balancer) AdjustNewForward(addr string, port uint32, tunnel *SshTunnel) ForwardDomain {
+	desiredDomain := ForwardDomain(addr)
+	subdomain := desiredDomain.Subdomain(b.Host)
+	if subdomain == "" {
+		subdomain = tunnel.user
 	}
+
+	realaddr := ForwardDomain(subdomain + "." + b.Host)
+	if _, ok := b.forwardsMap[realaddr]; ok {
+		panic("error while generating domain")
+	}
+
+	b.forwardsMap[(realaddr)] = &Proxy{
+		RequestedAddr: addr,
+		Port:          port,
+		TunnelId:      tunnel.sessionId,
+	}
+
+	return realaddr
 }
 
 func (b *Balancer) GetByAddress(addr string) *Proxy {

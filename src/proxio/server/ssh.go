@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/gliderlabs/ssh"
 	"io"
 	"net"
@@ -47,27 +48,8 @@ type SSHForwardServer struct {
 
 func (sfs *SSHForwardServer) Start() error {
 	s := &ssh.Server{
-		Addr: ":" + strconv.Itoa(int(sfs.port)),
-		Handler: func(session ssh.Session) {
-			_ = gossh.MarshalAuthorizedKey(session.PublicKey())
-			sessid := session.Context().Value(ssh.ContextKeySessionID).(string)
-			if err, found := sfs.tunnelErrors[sessid]; found {
-				delete(sfs.tunnelErrors, sessid)
-				session.Write([]byte(err + "\n"))
-				session.Close()
-				return
-			}
-
-			tunnel := sfs.getTunnel(sessid)
-			if tunnel == nil {
-				session.Write([]byte("Proxy was not established\n"))
-				return
-			}
-
-			tunnel.session = session
-
-			select {}
-		},
+		Addr:    ":" + strconv.Itoa(int(sfs.port)),
+		Handler: sfs.HandleSshSession,
 		LocalPortForwardingCallback: func(ctx ssh.Context, destinationHost string, destinationPort uint32) bool {
 			return true
 		},
@@ -87,8 +69,8 @@ func (sfs *SSHForwardServer) Start() error {
 	s.AddHostKey(publicKeyFile(sfs.privateKey))
 
 	s.RequestHandlers = map[string]ssh.RequestHandler{
-		"tcpip-forward":        sfs.handleSSHRequest,
-		"cancel-tcpip-forward": sfs.handleSSHRequest,
+		"tcpip-forward":        sfs.HandleSSHRequest,
+		"cancel-tcpip-forward": sfs.HandleSSHRequest,
 	}
 
 	s.ChannelHandlers = ssh.DefaultChannelHandlers
@@ -97,10 +79,12 @@ func (sfs *SSHForwardServer) Start() error {
 	return s.ListenAndServe()
 }
 
-func (sfs *SSHForwardServer) handleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh.Request) (bool, []byte) {
+func (sfs *SSHForwardServer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh.Request) (bool, []byte) {
 	tunnel := &SshTunnel{
 		sessionId: ctx.Value(ssh.ContextKeySessionID).(string),
 		conn:      ctx.Value(ssh.ContextKeyConn).(*gossh.ServerConn),
+		user:      ctx.Value(ssh.ContextKeyUser).(string),
+		publicKey: ctx.Value(ssh.ContextKeyPublicKey).(ssh.PublicKey),
 	}
 
 	switch req.Type {
@@ -115,7 +99,9 @@ func (sfs *SSHForwardServer) handleSSHRequest(ctx ssh.Context, srv *ssh.Server, 
 			return false, nil
 		}
 		sfs.addTunnel(tunnel)
-		sfs.balancer.AdjustNewForward(reqPayload.BindAddr, reqPayload.BindPort, tunnel.sessionId)
+		domain := sfs.balancer.AdjustNewForward(reqPayload.BindAddr, reqPayload.BindPort, tunnel)
+		fmt.Println("generated domain is " + domain)
+
 		return true, gossh.Marshal(&remoteForwardSuccess{reqPayload.BindPort})
 
 	case "cancel-tcpip-forward":
@@ -129,6 +115,28 @@ func (sfs *SSHForwardServer) handleSSHRequest(ctx ssh.Context, srv *ssh.Server, 
 	default:
 		return false, nil
 	}
+}
+
+func (sfs *SSHForwardServer) HandleSshSession(session ssh.Session) {
+	_ = gossh.MarshalAuthorizedKey(session.PublicKey())
+	sessId := session.Context().Value(ssh.ContextKeySessionID).(string)
+	if err, found := sfs.tunnelErrors[sessId]; found {
+		delete(sfs.tunnelErrors, sessId)
+		session.Write([]byte(err + "\n"))
+		session.Close()
+		return
+	}
+
+	tunnel := sfs.getTunnel(sessId)
+	if tunnel == nil {
+		session.Write([]byte("Proxy was not established\n"))
+		return
+	}
+
+	tunnel.session = session
+
+	tunnel.conn.Wait()
+	fmt.Printf("closed conn\n")
 }
 
 func (sfs *SSHForwardServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -189,9 +197,11 @@ type SshTunnel struct {
 	sessionId string
 	conn      *gossh.ServerConn
 	session   ssh.Session
+	user      string
+	publicKey ssh.PublicKey
 }
 
-func (st *SshTunnel) GetChannel(destAddr string, destPort uint32, originAddr string, originPort uint32) (io.ReadWriteCloser, error) {
+func (tunnel *SshTunnel) GetChannel(destAddr string, destPort uint32, originAddr string, originPort uint32) (io.ReadWriteCloser, error) {
 	payload := gossh.Marshal(&remoteForwardChannelData{
 		DestAddr:   destAddr,
 		DestPort:   destPort,
@@ -199,7 +209,7 @@ func (st *SshTunnel) GetChannel(destAddr string, destPort uint32, originAddr str
 		OriginPort: originPort,
 	})
 
-	channel, reqs, err := st.conn.OpenChannel(forwardedTCPChannelType, payload)
+	channel, reqs, err := tunnel.conn.OpenChannel(forwardedTCPChannelType, payload)
 	if err != nil {
 		return nil, err
 	}
