@@ -11,7 +11,8 @@ import (
 func Main() {
 	configs := config.ParseApplicationArgs()
 
-	balancer := NewBalancer(configs.Host)
+	suggester := NewCombinedSuggester()
+	balancer := NewBalancer(configs.Host, suggester)
 	httpTrafficHandler := client.NewTrafficTracker()
 	sshServer := NewSshForwardServer(balancer, httpTrafficHandler, configs.SshPort, configs.PrivateKeyPath)
 	uiHandler := ui.Handler(httpTrafficHandler.GetTraffic())

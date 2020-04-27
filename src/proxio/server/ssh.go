@@ -2,7 +2,6 @@ package server
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"github.com/gliderlabs/ssh"
 	"io"
@@ -185,12 +184,11 @@ func (sfs *SSHForwardServer) addTunnel(ctx ssh.Context, reqPayload remoteForward
 		publicKey: ctx.Value(ssh.ContextKeyPublicKey).(ssh.PublicKey),
 	}
 
-	if _, err := sfs.balancer.ValidateRequestDomain(reqPayload.BindAddr, reqPayload.BindPort); err != "" {
-		sfs.tunnelErrors[tunnel.sessionId] = err
-		return errors.New(err)
+	domain, err := sfs.balancer.CreateNewForward(reqPayload.BindAddr, reqPayload.BindPort, tunnel)
+	if err != nil {
+		sfs.tunnelErrors[tunnel.sessionId] = err.Error()
+		return err
 	}
-
-	domain := sfs.balancer.CreateNewForward(reqPayload.BindAddr, reqPayload.BindPort, tunnel)
 	fmt.Println("generated domain is " + domain)
 
 	sfs.tunnels[tunnel.sessionId] = tunnel
