@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"github.com/gliderlabs/ssh"
 	"io"
@@ -80,13 +81,6 @@ func (sfs *SSHForwardServer) Start() error {
 }
 
 func (sfs *SSHForwardServer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh.Request) (bool, []byte) {
-	tunnel := &SshTunnel{
-		sessionId: ctx.Value(ssh.ContextKeySessionID).(string),
-		conn:      ctx.Value(ssh.ContextKeyConn).(*gossh.ServerConn),
-		user:      ctx.Value(ssh.ContextKeyUser).(string),
-		publicKey: ctx.Value(ssh.ContextKeyPublicKey).(ssh.PublicKey),
-	}
-
 	switch req.Type {
 	case "tcpip-forward":
 		var reqPayload remoteForwardRequest
@@ -94,24 +88,21 @@ func (sfs *SSHForwardServer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, 
 			// TODO: log parse failure
 			return false, []byte{}
 		}
-		if _, err := sfs.balancer.ValidateRequestDomain(reqPayload.BindAddr, reqPayload.BindPort); err != "" {
-			sfs.tunnelErrors[tunnel.sessionId] = err
+		err := sfs.addTunnel(ctx, reqPayload)
+		if err != nil {
 			return false, nil
 		}
-		sfs.addTunnel(tunnel)
-		domain := sfs.balancer.AdjustNewForward(reqPayload.BindAddr, reqPayload.BindPort, tunnel)
-		fmt.Println("generated domain is " + domain)
 
 		return true, gossh.Marshal(&remoteForwardSuccess{reqPayload.BindPort})
 
-	case "cancel-tcpip-forward":
-		var reqPayload remoteForwardCancelRequest
-		if err := gossh.Unmarshal(req.Payload, &reqPayload); err != nil {
-			// TODO: log parse failure
-			return false, []byte{}
-		}
-
-		return true, nil
+	// case "cancel-tcpip-forward":
+	// 	var reqPayload remoteForwardCancelRequest
+	// 	if err := gossh.Unmarshal(req.Payload, &reqPayload); err != nil {
+	// 		// TODO: log parse failure
+	// 		return false, []byte{}
+	// 	}
+	//
+	// 	return true, nil
 	default:
 		return false, nil
 	}
@@ -119,15 +110,15 @@ func (sfs *SSHForwardServer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, 
 
 func (sfs *SSHForwardServer) HandleSshSession(session ssh.Session) {
 	_ = gossh.MarshalAuthorizedKey(session.PublicKey())
-	sessId := session.Context().Value(ssh.ContextKeySessionID).(string)
-	if err, found := sfs.tunnelErrors[sessId]; found {
-		delete(sfs.tunnelErrors, sessId)
+	sessionId := session.Context().Value(ssh.ContextKeySessionID).(string)
+	if err, found := sfs.tunnelErrors[sessionId]; found {
+		delete(sfs.tunnelErrors, sessionId)
 		session.Write([]byte(err + "\n"))
 		session.Close()
 		return
 	}
 
-	tunnel := sfs.getTunnel(sessId)
+	tunnel := sfs.getTunnel(sessionId)
 	if tunnel == nil {
 		session.Write([]byte("Proxy was not established\n"))
 		return
@@ -136,7 +127,8 @@ func (sfs *SSHForwardServer) HandleSshSession(session ssh.Session) {
 	tunnel.session = session
 
 	tunnel.conn.Wait()
-	fmt.Printf("closed conn\n")
+
+	sfs.closeTunnel(sessionId)
 }
 
 func (sfs *SSHForwardServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -185,12 +177,37 @@ func (sfs *SSHForwardServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (sfs *SSHForwardServer) addTunnel(tunnel *SshTunnel) {
+func (sfs *SSHForwardServer) addTunnel(ctx ssh.Context, reqPayload remoteForwardRequest) error {
+	tunnel := &SshTunnel{
+		sessionId: ctx.Value(ssh.ContextKeySessionID).(string),
+		conn:      ctx.Value(ssh.ContextKeyConn).(*gossh.ServerConn),
+		user:      ctx.Value(ssh.ContextKeyUser).(string),
+		publicKey: ctx.Value(ssh.ContextKeyPublicKey).(ssh.PublicKey),
+	}
+
+	if _, err := sfs.balancer.ValidateRequestDomain(reqPayload.BindAddr, reqPayload.BindPort); err != "" {
+		sfs.tunnelErrors[tunnel.sessionId] = err
+		return errors.New(err)
+	}
+
+	domain := sfs.balancer.CreateNewForward(reqPayload.BindAddr, reqPayload.BindPort, tunnel)
+	fmt.Println("generated domain is " + domain)
+
 	sfs.tunnels[tunnel.sessionId] = tunnel
+
+	return nil
 }
 
 func (sfs *SSHForwardServer) getTunnel(id string) *SshTunnel {
 	return sfs.tunnels[id]
+}
+
+func (sfs *SSHForwardServer) closeTunnel(id string) {
+	if tunnel := sfs.getTunnel(id); nil != tunnel {
+		sfs.balancer.DeleteForwardForSession(tunnel.sessionId)
+		tunnel.CloseSession()
+	}
+	delete(sfs.tunnels, id)
 }
 
 type SshTunnel struct {
@@ -216,6 +233,12 @@ func (tunnel *SshTunnel) GetChannel(destAddr string, destPort uint32, originAddr
 	go gossh.DiscardRequests(reqs)
 
 	return channel, nil
+}
+
+func (tunnel *SshTunnel) CloseSession() {
+	if nil != tunnel.session {
+		_ = tunnel.session.Close()
+	}
 }
 
 func NewSshForwardServer(balancer *Balancer, tracker *client.TrafficTracker, port uint32, privateKey string) *SSHForwardServer {

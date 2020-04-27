@@ -32,7 +32,7 @@ func (b *Balancer) ValidateRequestDomain(addr string, port uint32) (bool, string
 	return true, ""
 }
 
-func (b *Balancer) AdjustNewForward(addr string, port uint32, tunnel *SshTunnel) ForwardDomain {
+func (b *Balancer) CreateNewForward(addr string, port uint32, tunnel *SshTunnel) ForwardDomain {
 	desiredDomain := ForwardDomain(addr)
 	subdomain := desiredDomain.Subdomain(b.Host)
 	if subdomain == "" {
@@ -51,6 +51,15 @@ func (b *Balancer) AdjustNewForward(addr string, port uint32, tunnel *SshTunnel)
 	}
 
 	return realaddr
+}
+
+func (b *Balancer) DeleteForwardForSession(sessionId string) {
+	for key, proxy := range b.forwardsMap {
+		if proxy.TunnelId == sessionId {
+			delete(b.forwardsMap, key)
+			return
+		}
+	}
 }
 
 func (b *Balancer) GetByAddress(addr string) *Proxy {
