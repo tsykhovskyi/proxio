@@ -41,7 +41,7 @@ type SSHForwardServer struct {
 	balancer     *Balancer
 	tracker      *client.TrafficTracker
 	tunnels      map[string]*SshTunnel
-	tunnelErrors map[string]string
+	tunnelErrors map[string]error
 	port         uint32
 	privateKey   string
 }
@@ -97,28 +97,29 @@ func (sfs *SSHForwardServer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, 
 	}
 }
 
-func (sfs *SSHForwardServer) HandleSshSession(session ssh.Session) {
+func (sfs *SSHForwardServer) HandleSshSession(s ssh.Session) {
+	session := &Session{s}
+
 	_ = gossh.MarshalAuthorizedKey(session.PublicKey())
 	sessionId := session.Context().Value(ssh.ContextKeySessionID).(string)
 	defer sfs.closeTunnel(sessionId)
 
 	if err, found := sfs.tunnelErrors[sessionId]; found {
 		delete(sfs.tunnelErrors, sessionId)
-		session.Write([]byte(err + "\n"))
-		session.Close()
+		session.Error(err.Error())
 		return
 	}
 
 	tunnel := sfs.getTunnel(sessionId)
 	if tunnel == nil {
-		session.Write([]byte("Ssh tunnel was not established\n"))
+		session.Error("Ssh tunnel was not established")
 		return
 	}
 
 	tunnel.session = session
 	proxy := sfs.balancer.GetProxyBySessionId(sessionId)
 	if proxy == nil {
-		session.Write([]byte("Proxy was not found\n"))
+		session.Error("Proxy was not found")
 		return
 	}
 
@@ -128,7 +129,7 @@ func (sfs *SSHForwardServer) HandleSshSession(session ssh.Session) {
 
 	tunnel.conn.Wait()
 
-	fmt.Fprintf(session, "\u001b[31mConnection closed\u001B[0m\n")
+	session.Error("Connection closed")
 }
 
 func (sfs *SSHForwardServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +144,6 @@ func (sfs *SSHForwardServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sfs.tracker.RequestStarted(r)
-	tunnel.session.Write([]byte("You have serve traffic\n"))
 
 	originAddr, originPortStr, _ := net.SplitHostPort(r.RemoteAddr)
 	originPort, _ := strconv.Atoi(originPortStr)
@@ -185,12 +185,11 @@ func (sfs *SSHForwardServer) addTunnel(ctx ssh.Context, reqPayload remoteForward
 		publicKey: ctx.Value(ssh.ContextKeyPublicKey).(ssh.PublicKey),
 	}
 
-	domain, err := sfs.balancer.CreateNewForward(reqPayload.BindAddr, reqPayload.BindPort, tunnel)
+	_, err := sfs.balancer.CreateNewForward(reqPayload.BindAddr, reqPayload.BindPort, tunnel)
 	if err != nil {
-		sfs.tunnelErrors[tunnel.sessionId] = err.Error()
+		sfs.tunnelErrors[tunnel.sessionId] = err
 		return err
 	}
-	fmt.Println("generated domain is " + domain)
 
 	sfs.tunnels[tunnel.sessionId] = tunnel
 
@@ -212,7 +211,7 @@ func (sfs *SSHForwardServer) closeTunnel(id string) {
 type SshTunnel struct {
 	sessionId string
 	conn      *gossh.ServerConn
-	session   ssh.Session
+	session   *Session
 	user      string
 	publicKey ssh.PublicKey
 }
@@ -240,6 +239,14 @@ func (tunnel *SshTunnel) CloseSession() {
 	}
 }
 
+type Session struct {
+	ssh.Session
+}
+
+func (session Session) Error(err string) {
+	fmt.Fprintf(session, "\u001b[31m%s\u001B[0m\n", err)
+}
+
 func NewSshForwardServer(balancer *Balancer, tracker *client.TrafficTracker, port uint32, privateKey string) *SSHForwardServer {
 	return &SSHForwardServer{
 		balancer:     balancer,
@@ -247,6 +254,6 @@ func NewSshForwardServer(balancer *Balancer, tracker *client.TrafficTracker, por
 		privateKey:   privateKey,
 		tracker:      tracker,
 		tunnels:      make(map[string]*SshTunnel),
-		tunnelErrors: make(map[string]string),
+		tunnelErrors: make(map[string]error),
 	}
 }

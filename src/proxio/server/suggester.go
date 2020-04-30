@@ -57,6 +57,6 @@ func (c CombinedSuggester) Suggest(tunnel *SshTunnel, attemptNum int) string {
 func NewCombinedSuggester() *CombinedSuggester {
 	return &CombinedSuggester{
 		UserNameSuggester:   NewUserNameSuggester(),
-		RandomizerSuggester: NewRandomizerSuggester(3),
+		RandomizerSuggester: NewRandomizerSuggester(6),
 	}
 }
