@@ -10,13 +10,14 @@ import (
 
 func Main() {
 	configs := config.ParseApplicationArgs()
+	uiDomain := "ui." + configs.Host
 
 	suggester := NewCombinedSuggester()
 	balancer := NewBalancer(configs.Host, suggester)
 	httpTrafficHandler := client.NewTrafficTracker()
-	sshServer := NewSshForwardServer(balancer, httpTrafficHandler, configs.SshPort, configs.PrivateKeyPath)
+	sshServer := NewSshForwardServer(balancer, httpTrafficHandler, configs.SshPort, configs.PrivateKeyPath, uiDomain)
 	uiHandler := ui.Handler(httpTrafficHandler.GetTraffic())
-	httpServer := NewHttpServer(sshServer, uiHandler)
+	httpServer := NewHttpServer(sshServer, uiHandler, uiDomain)
 
 	var (
 		wg  sync.WaitGroup

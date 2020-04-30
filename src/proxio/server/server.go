@@ -5,14 +5,11 @@ import (
 	"strings"
 )
 
-func NewHttpServer(clientTrafficHandler, monitoringHandler http.Handler) *http.Server {
+func NewHttpServer(clientTrafficHandler, monitoringHandler http.Handler, monitoringDomain string) *http.Server {
 	splitHandler := SubDomainMiddleware(
 		clientTrafficHandler,
-		// http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 	w.WriteHeader(http.StatusNotFound)
-		// 	w.Write([]byte("<h1>Forward path not found</h1>"))
-		// }),
 		monitoringHandler,
+		monitoringDomain,
 	)
 
 	return &http.Server{
@@ -21,14 +18,19 @@ func NewHttpServer(clientTrafficHandler, monitoringHandler http.Handler) *http.S
 	}
 }
 
-func SubDomainMiddleware(subDomainHandler, originHandler http.Handler) http.Handler {
+func SubDomainMiddleware(trafficHandler, monitorHandler http.Handler, monitoringDomain string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		domainParts := strings.Split(r.Host, ".")
-		if len(domainParts) == 2 {
-			subDomainHandler.ServeHTTP(w, r)
+		if r.Host == monitoringDomain {
+			monitorHandler.ServeHTTP(w, r)
 			return
 		}
 
-		originHandler.ServeHTTP(w, r)
+		domainParts := strings.Split(r.Host, ".")
+		if len(domainParts) == 2 {
+			trafficHandler.ServeHTTP(w, r)
+			return
+		}
+
+		PageNotFound(w)
 	})
 }

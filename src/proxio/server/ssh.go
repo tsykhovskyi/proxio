@@ -38,12 +38,13 @@ type remoteForwardCancelRequest struct {
 }
 
 type SSHForwardServer struct {
+	port         uint32
+	privateKey   string
+	uiDomain     string
 	balancer     *Balancer
 	tracker      *client.TrafficTracker
 	tunnels      map[string]*SshTunnel
 	tunnelErrors map[string]error
-	port         uint32
-	privateKey   string
 }
 
 func (sfs *SSHForwardServer) Start() error {
@@ -125,7 +126,7 @@ func (sfs *SSHForwardServer) HandleSshSession(s ssh.Session) {
 
 	fmt.Fprintf(session, "\u001b[32mYou proxy has been established:\u001b[0m\n")
 	fmt.Fprintf(session, "Proxy:\t\t%s\n", proxy.Host())
-	fmt.Fprintf(session, "Web ui:\t\thttp://localhost:80\n\n")
+	fmt.Fprintf(session, "Web ui:\t\thttp://%s\n\n", sfs.uiDomain)
 
 	tunnel.conn.Wait()
 
@@ -247,11 +248,12 @@ func (session Session) Error(err string) {
 	fmt.Fprintf(session, "\u001b[31m%s\u001B[0m\n", err)
 }
 
-func NewSshForwardServer(balancer *Balancer, tracker *client.TrafficTracker, port uint32, privateKey string) *SSHForwardServer {
+func NewSshForwardServer(balancer *Balancer, tracker *client.TrafficTracker, port uint32, privateKey string, uiDomain string) *SSHForwardServer {
 	return &SSHForwardServer{
-		balancer:     balancer,
 		port:         port,
 		privateKey:   privateKey,
+		uiDomain:     uiDomain,
+		balancer:     balancer,
 		tracker:      tracker,
 		tunnels:      make(map[string]*SshTunnel),
 		tunnelErrors: make(map[string]error),
