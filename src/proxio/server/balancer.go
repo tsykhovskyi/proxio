@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -16,12 +17,6 @@ type Balancer struct {
 	Host        string
 	suggester   Suggester
 	forwardsMap map[Domain]*Proxy
-}
-
-type Proxy struct {
-	RequestedAddr string
-	Port          uint32
-	TunnelId      string
 }
 
 func (b *Balancer) ValidateRequestDomain(addr string, port uint32) (bool, error) {
@@ -79,6 +74,8 @@ func (b *Balancer) CreateNewForward(addr string, port uint32, tunnel *SshTunnel)
 	}
 
 	b.forwardsMap[domain] = &Proxy{
+		Domain:        domain,
+		Proto:         "http",
 		RequestedAddr: addr,
 		Port:          port,
 		TunnelId:      tunnel.sessionId,
@@ -87,7 +84,16 @@ func (b *Balancer) CreateNewForward(addr string, port uint32, tunnel *SshTunnel)
 	return domain, nil
 }
 
-func (b *Balancer) DeleteForwardForSession(sessionId string) {
+func (b *Balancer) GetProxyBySessionId(sessionId string) *Proxy {
+	for _, proxy := range b.forwardsMap {
+		if proxy.TunnelId == sessionId {
+			return proxy
+		}
+	}
+	return nil
+}
+
+func (b *Balancer) DeleteProxyForSession(sessionId string) {
 	for key, proxy := range b.forwardsMap {
 		if proxy.TunnelId == sessionId {
 			delete(b.forwardsMap, key)
@@ -96,11 +102,23 @@ func (b *Balancer) DeleteForwardForSession(sessionId string) {
 	}
 }
 
-func (b *Balancer) GetByAddress(addr string) *Proxy {
+func (b *Balancer) GetProxyByAddress(addr string) *Proxy {
 	if dest := b.forwardsMap[Domain(addr)]; dest != nil {
 		return dest
 	}
 	return nil
+}
+
+type Proxy struct {
+	Domain        Domain
+	Proto         string
+	RequestedAddr string
+	Port          uint32
+	TunnelId      string
+}
+
+func (p *Proxy) Host() string {
+	return fmt.Sprintf("%s://%s", p.Proto, p.Domain)
 }
 
 func NewBalancer(host string, suggester Suggester) *Balancer {

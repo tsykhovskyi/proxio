@@ -84,7 +84,6 @@ func (sfs *SSHForwardServer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, 
 	case "tcpip-forward":
 		var reqPayload remoteForwardRequest
 		if err := gossh.Unmarshal(req.Payload, &reqPayload); err != nil {
-			// TODO: log parse failure
 			return false, []byte{}
 		}
 		err := sfs.addTunnel(ctx, reqPayload)
@@ -93,15 +92,6 @@ func (sfs *SSHForwardServer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, 
 		}
 
 		return true, gossh.Marshal(&remoteForwardSuccess{reqPayload.BindPort})
-
-	// case "cancel-tcpip-forward":
-	// 	var reqPayload remoteForwardCancelRequest
-	// 	if err := gossh.Unmarshal(req.Payload, &reqPayload); err != nil {
-	// 		// TODO: log parse failure
-	// 		return false, []byte{}
-	// 	}
-	//
-	// 	return true, nil
 	default:
 		return false, nil
 	}
@@ -110,6 +100,8 @@ func (sfs *SSHForwardServer) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, 
 func (sfs *SSHForwardServer) HandleSshSession(session ssh.Session) {
 	_ = gossh.MarshalAuthorizedKey(session.PublicKey())
 	sessionId := session.Context().Value(ssh.ContextKeySessionID).(string)
+	defer sfs.closeTunnel(sessionId)
+
 	if err, found := sfs.tunnelErrors[sessionId]; found {
 		delete(sfs.tunnelErrors, sessionId)
 		session.Write([]byte(err + "\n"))
@@ -119,19 +111,28 @@ func (sfs *SSHForwardServer) HandleSshSession(session ssh.Session) {
 
 	tunnel := sfs.getTunnel(sessionId)
 	if tunnel == nil {
-		session.Write([]byte("Proxy was not established\n"))
+		session.Write([]byte("Ssh tunnel was not established\n"))
 		return
 	}
 
 	tunnel.session = session
+	proxy := sfs.balancer.GetProxyBySessionId(sessionId)
+	if proxy == nil {
+		session.Write([]byte("Proxy was not found\n"))
+		return
+	}
+
+	fmt.Fprintf(session, "\u001b[32mYou proxy has been established:\u001b[0m\n")
+	fmt.Fprintf(session, "Proxy:\t\t%s\n", proxy.Host())
+	fmt.Fprintf(session, "Web ui:\t\thttp://localhost:80\n\n")
 
 	tunnel.conn.Wait()
 
-	sfs.closeTunnel(sessionId)
+	fmt.Fprintf(session, "\u001b[31mConnection closed\u001B[0m\n")
 }
 
 func (sfs *SSHForwardServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	dest := sfs.balancer.GetByAddress(r.Host)
+	dest := sfs.balancer.GetProxyByAddress(r.Host)
 	if nil == dest {
 		ProxyNotFound(w)
 		return
@@ -202,7 +203,7 @@ func (sfs *SSHForwardServer) getTunnel(id string) *SshTunnel {
 
 func (sfs *SSHForwardServer) closeTunnel(id string) {
 	if tunnel := sfs.getTunnel(id); nil != tunnel {
-		sfs.balancer.DeleteForwardForSession(tunnel.sessionId)
+		sfs.balancer.DeleteProxyForSession(tunnel.sessionId)
 		tunnel.CloseSession()
 	}
 	delete(sfs.tunnels, id)
