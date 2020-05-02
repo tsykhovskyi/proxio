@@ -23,7 +23,7 @@ func (b *Balancer) ValidateRequestDomain(addr string, port uint32) (bool, error)
 	if port != 80 {
 		return false, errors.New("Only 80 port can be forwarded")
 	}
-	if addr == "" || addr == b.Host {
+	if addr == "" || addr == b.Host || addr == "localhost" {
 		return true, nil
 	}
 
@@ -40,11 +40,10 @@ func (b *Balancer) ValidateRequestDomain(addr string, port uint32) (bool, error)
 }
 
 func (b *Balancer) Subdomain(addr string) string {
-	addr = strings.TrimSuffix(addr, b.Host)
-	if addr == "" {
+	if addr == "" || addr == b.Host || addr == "localhost" {
 		return ""
 	}
-	return strings.TrimSuffix(addr, ".")
+	return strings.TrimSuffix(addr, "."+b.Host)
 }
 
 func (b *Balancer) CreateNewForward(addr string, port uint32, tunnel *SshTunnel) (Domain, error) {

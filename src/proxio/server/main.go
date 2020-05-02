@@ -17,7 +17,7 @@ func Main() {
 	httpTrafficHandler := client.NewTrafficTracker()
 	sshServer := NewSshForwardServer(balancer, httpTrafficHandler, configs.SshPort, configs.PrivateKeyPath, uiDomain)
 	uiHandler := ui.Handler(httpTrafficHandler.GetTraffic())
-	httpServer := NewHttpServer(sshServer, uiHandler, uiDomain)
+	httpServer := NewHttpServer(sshServer, uiHandler, configs.Host, uiDomain)
 
 	var (
 		wg  sync.WaitGroup

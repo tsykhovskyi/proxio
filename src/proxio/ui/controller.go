@@ -43,7 +43,7 @@ func filterURI(uri string) string {
 }
 
 func (c *Controller) allMessages(w http.ResponseWriter, r *http.Request) {
-	messages := c.Storage.All("itsykhovskyi.localhost")
+	messages := c.Storage.All("itsykhovskyi.proxio.rd")
 
 	response := make([]*client.MessageContent, len(messages))
 
