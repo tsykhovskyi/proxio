@@ -1,0 +1,3 @@
+[submodule "src/telemetry"]
+	path = src/telemetry
+	url = git@github.com:tsykhovskyi/proxio-telemetry.git
