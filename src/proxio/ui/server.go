@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/gorilla/mux"
 	"net/http"
 	"proxio/client"
 )
@@ -17,13 +18,14 @@ func Handler(traffic client.Traffic) http.Handler {
 	}()
 
 	ctr := NewController(storage)
-	mux := http.NewServeMux()
-	mux.HandleFunc("/clear", ctr.clear)
-	mux.HandleFunc("/m", ctr.allMessages)
-	mux.HandleFunc("/", ctr.static)
-	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	r := mux.NewRouter()
+	r.HandleFunc("/clear", ctr.clear)
+	r.HandleFunc("/m", ctr.allMessages)
+	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		connection := serveWs(w, r, connectionPool.closeChan)
 		connectionPool.NewConnection(connection)
 	})
-	return mux
+	r.PathPrefix("/").Handler(NewSpaHandler())
+
+	return r
 }

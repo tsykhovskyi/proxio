@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"proxio/client"
 	"regexp"
 )
@@ -42,10 +43,12 @@ func filterURI(uri string) string {
 }
 
 func (c *Controller) allMessages(w http.ResponseWriter, r *http.Request) {
-	response := make([]*client.MessageContent, 0)
+	messages := c.Storage.All("itsykhovskyi.localhost")
 
-	for _, m := range c.Storage.All() {
-		response = append(response, m.GetContext())
+	response := make([]*client.MessageContent, len(messages))
+
+	for i, m := range messages {
+		response[i] = m.GetContext()
 	}
 
 	payload, err := json.Marshal(response)
@@ -58,4 +61,35 @@ func (c *Controller) allMessages(w http.ResponseWriter, r *http.Request) {
 
 func (c *Controller) clear(w http.ResponseWriter, r *http.Request) {
 	c.Storage.RemoveAll()
+}
+
+type spaHandler struct {
+	staticPath string
+	indexPath  string
+}
+
+func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	path, err := filepath.Abs(r.URL.Path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	path = filepath.Join(h.staticPath, path)
+	_, err = os.Stat(path)
+	if os.IsNotExist(err) {
+		http.ServeFile(w, r, filepath.Join(h.staticPath, h.indexPath))
+		return
+	} else if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.FileServer(http.Dir(h.staticPath)).ServeHTTP(w, r)
+}
+
+func NewSpaHandler() http.Handler {
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	return spaHandler{staticPath: wd + "/ui/web", indexPath: "index.html"}
 }
