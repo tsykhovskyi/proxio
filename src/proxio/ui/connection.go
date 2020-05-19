@@ -6,8 +6,8 @@ import (
 
 func NewConnectionPool() *Pool {
 	pool := &Pool{
-		Connections: []*Connection{},
-		closeChan:   make(chan *Connection),
+		DomainListeners: make(map[string][]*Connection, 0),
+		closeChan:       make(chan *Connection),
 	}
 
 	go func() {
@@ -20,26 +20,35 @@ func NewConnectionPool() *Pool {
 }
 
 type Pool struct {
-	Connections []*Connection
-	closeChan   chan *Connection
+	DomainListeners map[string][]*Connection
+	closeChan       chan *Connection
 }
 
-func (p *Pool) NewConnection(conn *Connection) {
-	p.Connections = append(p.Connections, conn)
+func (p *Pool) NewConnection(domain string, conn *Connection) {
+	if _, ok := p.DomainListeners[domain]; !ok {
+		p.DomainListeners[domain] = []*Connection{}
+	}
+	p.DomainListeners[domain] = append(p.DomainListeners[domain], conn)
 }
 
 func (p *Pool) removeConnection(conn *Connection) {
-	for i, c := range p.Connections {
-		if c == conn {
-			p.Connections = append(p.Connections[:i], p.Connections[i+1:]...)
+	for domain, connections := range p.DomainListeners {
+		for i, c := range connections {
+			if c == conn {
+				p.DomainListeners[domain] = append(p.DomainListeners[domain][:i], p.DomainListeners[domain][i+1:]...)
+			}
 		}
 	}
 }
 
 func (p *Pool) BroadcastMessage(message *client.MessageContent) {
-	for _, conn := range p.Connections {
+	connections, ok := p.DomainListeners[message.Domain]
+	if !ok {
+		return
+	}
+	for _, conn := range connections {
 		if err := conn.Send(message); err != nil {
-			println("error sending message", p.Connections)
+			println("error sending message", p.DomainListeners)
 		}
 	}
 }

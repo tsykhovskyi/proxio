@@ -7,43 +7,24 @@ import (
 	"os"
 	"path/filepath"
 	"proxio/client"
-	"regexp"
 )
 
-func NewController(storage *Storage) *Controller {
-	return &Controller{
+func NewTrafficRequestHandler(storage *Storage) *TrafficRequestHandler {
+	return &TrafficRequestHandler{
 		Storage: storage,
 	}
 }
 
-type Controller struct {
+type TrafficRequestHandler struct {
 	Storage *Storage
 }
 
-func (c *Controller) static(w http.ResponseWriter, r *http.Request) {
-	fileName := filterURI(r.RequestURI)
-
-	if fileName == "/" {
-		fileName = "/index.html"
+func (c *TrafficRequestHandler) domainTraffic(w http.ResponseWriter, r *http.Request) {
+	domain := r.URL.Query().Get("domain")
+	if domain == "" {
+		http.Error(w, "Domain not provided", 400)
 	}
-
-	wd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-
-	http.ServeFile(w, r, wd+"/ui/web"+fileName)
-}
-
-func filterURI(uri string) string {
-	re := regexp.MustCompile("[?].*$")
-	uri = re.ReplaceAllString(uri, "")
-
-	return uri
-}
-
-func (c *Controller) allMessages(w http.ResponseWriter, r *http.Request) {
-	messages := c.Storage.All("itsykhovskyi.proxio.rd")
+	messages := c.Storage.All(domain)
 
 	response := make([]*client.MessageContent, len(messages))
 
@@ -59,8 +40,8 @@ func (c *Controller) allMessages(w http.ResponseWriter, r *http.Request) {
 	w.Write(payload)
 }
 
-func (c *Controller) clear(w http.ResponseWriter, r *http.Request) {
-	c.Storage.RemoveAll()
+func (c *TrafficRequestHandler) clear(w http.ResponseWriter, r *http.Request) {
+	c.Storage.RemoveAll("")
 }
 
 type spaHandler struct {

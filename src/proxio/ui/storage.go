@@ -30,6 +30,9 @@ func (s *Storage) All(domain string) []*client.Message {
 	return s.domains[domain]
 }
 
-func (s *Storage) RemoveAll() {
-	// s.messages = make(map[int]*client.Message)
+func (s *Storage) RemoveAll(domain string) {
+	messages, ok := s.domains[domain]
+	if ok {
+		messages = messages[:0]
+	}
 }

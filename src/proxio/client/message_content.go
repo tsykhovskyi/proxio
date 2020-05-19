@@ -9,6 +9,7 @@ import (
 type MessageContent struct {
 	Id       int
 	Status   int
+	Domain   string
 	Time     *Time
 	Request  *Request
 	Response *Response
@@ -42,6 +43,7 @@ func BuildContent(m *Message) *MessageContent {
 	c.Time = &Time{
 		StartedAt: m.StartedAt.Format(time.RFC3339),
 	}
+	c.Domain = req.Host
 	c.Request = &Request{
 		req.Method,
 		req.RequestURI,

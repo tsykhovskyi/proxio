@@ -10,9 +10,8 @@ import (
 )
 
 type Connection struct {
-	conn      net.Conn
-	messages  chan *client.MessageContent
-	closeChan chan bool
+	conn     net.Conn
+	messages chan *client.MessageContent
 }
 
 func (c *Connection) Send(m *client.MessageContent) error {
@@ -34,7 +33,7 @@ func serveWs(w http.ResponseWriter, r *http.Request, closeChannel chan *Connecti
 		fmt.Println("Server doesn't support ws")
 	}
 
-	connection := &Connection{conn, make(chan *client.MessageContent), make(chan bool, 1)}
+	connection := &Connection{conn, make(chan *client.MessageContent)}
 
 	go func() {
 		defer conn.Close()
