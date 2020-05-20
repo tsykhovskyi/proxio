@@ -39,8 +39,8 @@ func serveWs(w http.ResponseWriter, r *http.Request, closeChannel chan *Connecti
 		defer conn.Close()
 
 		for {
-			frame := ws.MustReadFrame(conn)
-			if frame.Header.OpCode == ws.OpClose {
+			frame, err := ws.ReadFrame(conn)
+			if err != nil || frame.Header.OpCode == ws.OpClose {
 				closeChannel <- connection
 				return
 			}
