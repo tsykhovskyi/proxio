@@ -1,4 +1,4 @@
-package server
+package ssh
 
 import (
 	"net/http"

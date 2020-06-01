@@ -1,4 +1,4 @@
-package server
+package ssh
 
 import (
 	"bufio"
@@ -124,10 +124,7 @@ func (sfs *SSHForwardServer) HandleSshSession(s ssh.Session) {
 		return
 	}
 
-	fmt.Fprintf(session, "\u001b[32mYou proxy has been established:\u001b[0m\n")
-	fmt.Fprintf(session, "Proxy:\t\t%s\n", proxy.Host())
-	fmt.Fprintf(session, "Web ui:\t\thttp://%s\n\n", sfs.uiDomain)
-
+	tunnelEstablishedSshMessage(session, proxy, sfs.uiDomain)
 	tunnel.conn.Wait()
 
 	session.Error("Connection closed")
@@ -139,7 +136,7 @@ func (sfs *SSHForwardServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ProxyNotFound(w)
 		return
 	}
-	tunnel := sfs.getTunnel(dest.TunnelId)
+	tunnel := dest.Tunnel
 	if nil == tunnel {
 		panic("tunnel not found while ssh-forwarding")
 	}
@@ -180,10 +177,11 @@ func (sfs *SSHForwardServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (sfs *SSHForwardServer) addTunnel(ctx ssh.Context, reqPayload remoteForwardRequest) error {
 	tunnel := &SshTunnel{
-		sessionId: ctx.Value(ssh.ContextKeySessionID).(string),
-		conn:      ctx.Value(ssh.ContextKeyConn).(*gossh.ServerConn),
-		user:      ctx.Value(ssh.ContextKeyUser).(string),
-		publicKey: ctx.Value(ssh.ContextKeyPublicKey).(ssh.PublicKey),
+		sessionId:    ctx.Value(ssh.ContextKeySessionID).(string),
+		conn:         ctx.Value(ssh.ContextKeyConn).(*gossh.ServerConn),
+		user:         ctx.Value(ssh.ContextKeyUser).(string),
+		publicKey:    ctx.Value(ssh.ContextKeyPublicKey).(ssh.PublicKey),
+		publicKeyStr: string(ctx.Value(ssh.ContextKeyPublicKey).(ssh.PublicKey).Marshal()),
 	}
 
 	_, err := sfs.balancer.CreateNewForward(reqPayload.BindAddr, reqPayload.BindPort, tunnel)
@@ -210,11 +208,12 @@ func (sfs *SSHForwardServer) closeTunnel(id string) {
 }
 
 type SshTunnel struct {
-	sessionId string
-	conn      *gossh.ServerConn
-	session   *Session
-	user      string
-	publicKey ssh.PublicKey
+	sessionId    string
+	conn         *gossh.ServerConn
+	session      *Session
+	user         string
+	publicKey    ssh.PublicKey
+	publicKeyStr string
 }
 
 func (tunnel *SshTunnel) GetChannel(destAddr string, destPort uint32, originAddr string, originPort uint32) (io.ReadWriteCloser, error) {
@@ -258,4 +257,10 @@ func NewSshForwardServer(balancer *Balancer, tracker *client.TrafficTracker, por
 		tunnels:      make(map[string]*SshTunnel),
 		tunnelErrors: make(map[string]error),
 	}
+}
+
+func tunnelEstablishedSshMessage(session ssh.Session, proxy *Proxy, uiWebHost string) {
+	fmt.Fprintf(session, "\u001b[32mYou proxy has been established:\u001b[0m\n")
+	fmt.Fprintf(session, "Proxy:\t\t%s\n", proxy.Host())
+	fmt.Fprintf(session, "Web ui:\t\thttp://%s/%s?token=%s\n\n", uiWebHost, proxy.Domain, proxy.Tunnel.sessionId)
 }

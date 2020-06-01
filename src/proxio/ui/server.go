@@ -3,12 +3,12 @@ package ui
 import (
 	"github.com/gorilla/mux"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"proxio/client"
+	"proxio/repository"
+	"proxio/ssh"
 )
 
-func Handler(traffic client.Traffic) http.Handler {
+func Handler(traffic client.Traffic, sessions repository.Sessions, balancer *ssh.Balancer) http.Handler {
 	connectionPool := NewConnectionPool()
 	storage := NewStorage()
 
@@ -21,22 +21,16 @@ func Handler(traffic client.Traffic) http.Handler {
 
 	ctr := NewTrafficRequestHandler(storage)
 	r := mux.NewRouter()
-	r.HandleFunc("/clear", ctr.clear)
-	r.HandleFunc("/m", ctr.domainTraffic)
-	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		connection := serveWs(w, r, connectionPool.closeChan)
-
-		domain := r.URL.Query().Get("domain")
-		if domain == "" {
-			http.Error(w, "Domain not provided", 400)
-		}
-		connectionPool.NewConnection(domain, connection)
-	})
-
+	api := r.PathPrefix("/api").Subrouter()
+	api.HandleFunc("/test", ctr.test)
+	api.HandleFunc("/clear", ctr.clear)
+	api.HandleFunc("/m", ctr.domainTraffic)
+	api.Handle("/ws", NewWsHandler(connectionPool))
 	// r.PathPrefix("/").Handler(NewSpaHandler())
-	proxyPath, _ := url.Parse("http://localhost:4200")
-	proxy := httputil.NewSingleHostReverseProxy(proxyPath)
-	r.PathPrefix("/").Handler(proxy)
+	r.PathPrefix("/").Handler(NewProxyHandler("http://localhost:4200"))
+
+	api.Use(NewSessionMiddleware(sessions))
+	api.Use(NewDomainPermissionMiddleware(balancer))
 
 	return r
 }

@@ -1,4 +1,4 @@
-package server
+package ssh
 
 import (
 	"errors"
@@ -77,7 +77,7 @@ func (b *Balancer) CreateNewForward(addr string, port uint32, tunnel *SshTunnel)
 		Proto:         "http",
 		RequestedAddr: addr,
 		Port:          port,
-		TunnelId:      tunnel.sessionId,
+		Tunnel:        tunnel,
 	}
 
 	return domain, nil
@@ -85,7 +85,7 @@ func (b *Balancer) CreateNewForward(addr string, port uint32, tunnel *SshTunnel)
 
 func (b *Balancer) GetProxyBySessionId(sessionId string) *Proxy {
 	for _, proxy := range b.forwardsMap {
-		if proxy.TunnelId == sessionId {
+		if proxy.Tunnel.sessionId == sessionId {
 			return proxy
 		}
 	}
@@ -94,7 +94,7 @@ func (b *Balancer) GetProxyBySessionId(sessionId string) *Proxy {
 
 func (b *Balancer) DeleteProxyForSession(sessionId string) {
 	for key, proxy := range b.forwardsMap {
-		if proxy.TunnelId == sessionId {
+		if proxy.Tunnel.sessionId == sessionId {
 			delete(b.forwardsMap, key)
 			return
 		}
@@ -108,12 +108,28 @@ func (b *Balancer) GetProxyByAddress(addr string) *Proxy {
 	return nil
 }
 
+func (b *Balancer) TestDomainToken(domain string, token string) bool {
+	proxy := b.GetProxyByAddress(domain)
+	if proxy == nil {
+		return false
+	}
+	return proxy.Tunnel.sessionId == token
+}
+
+func (b *Balancer) TestDomainPublicKey(domain string, publicKey string) bool {
+	proxy := b.GetProxyByAddress(domain)
+	if proxy == nil {
+		return false
+	}
+	return proxy.Tunnel.publicKeyStr == publicKey
+}
+
 type Proxy struct {
 	Domain        Domain
 	Proto         string
 	RequestedAddr string
 	Port          uint32
-	TunnelId      string
+	Tunnel        *SshTunnel
 }
 
 func (p *Proxy) Host() string {
