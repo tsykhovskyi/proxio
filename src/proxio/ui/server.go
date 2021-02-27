@@ -22,15 +22,17 @@ func Handler(traffic client.Traffic, sessions repository.Sessions, balancer *ssh
 	ctr := NewTrafficRequestHandler(storage)
 	r := mux.NewRouter()
 	api := r.PathPrefix("/api").Subrouter()
-	api.HandleFunc("/test", ctr.test)
-	api.HandleFunc("/clear", ctr.clear)
-	api.HandleFunc("/m", ctr.domainTraffic)
-	api.Handle("/ws", NewWsHandler(connectionPool))
+	api.HandleFunc("/session", ctr.session)
+
+	domain := api.PathPrefix("/domain").Subrouter()
+	domain.HandleFunc("/clear", ctr.clear)
+	domain.HandleFunc("/m", ctr.domainTraffic)
+	domain.Handle("/ws", NewWsHandler(connectionPool))
 	// r.PathPrefix("/").Handler(NewSpaHandler())
 	r.PathPrefix("/").Handler(NewProxyHandler("http://localhost:4200"))
 
-	api.Use(NewSessionMiddleware(sessions))
-	api.Use(NewDomainPermissionMiddleware(balancer))
+	r.Use(NewSessionMiddleware(sessions))
+	domain.Use(NewDomainPermissionMiddleware(balancer))
 
 	return r
 }

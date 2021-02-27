@@ -24,7 +24,7 @@ var (
 	ContextKeyRequestSession = &contextKey{name: "session"}
 )
 
-// Authentication middleware
+// This will check authentication header and attach session object if user authenticated
 func NewSessionMiddleware(sessions repository.Sessions) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -41,6 +41,8 @@ func NewSessionMiddleware(sessions repository.Sessions) mux.MiddlewareFunc {
 	}
 }
 
+// This will compare user token to attempted domain action
+// and return 401 if not allowed
 func NewDomainPermissionMiddleware(balancer *ssh.Balancer) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +60,7 @@ func NewDomainPermissionMiddleware(balancer *ssh.Balancer) mux.MiddlewareFunc {
 			}
 
 			if !accessGranted {
-				http.Error(w, "Unauthorized", 401)
+				http.Error(w, "Incorrect token or domain is invalid", 403)
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -102,14 +104,19 @@ func (c *TrafficRequestHandler) clear(w http.ResponseWriter, r *http.Request) {
 	c.Storage.RemoveAll("")
 }
 
-func (c *TrafficRequestHandler) test(w http.ResponseWriter, r *http.Request) {
+func (c *TrafficRequestHandler) session(w http.ResponseWriter, r *http.Request) {
 	val := context.Get(r, ContextKeyRequestSession)
 	if val == nil {
 		http.Error(w, "Unauthorized", 401)
 		return
 	}
 	session := val.(repository.Session)
-	fmt.Printf("Session is %s\n", session.Id)
+
+	payload, err := json.Marshal(session)
+	if err != nil {
+		http.Error(w, "Something goes wrong", 500)
+	}
+	w.Write(payload)
 }
 
 // Websocket handler
