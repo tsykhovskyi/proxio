@@ -7,7 +7,8 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"proxio/client"
+	"proxio/service"
+	"proxio/traffic"
 	"strconv"
 )
 import gossh "golang.org/x/crypto/ssh"
@@ -42,7 +43,7 @@ type SSHForwardServer struct {
 	privateKey   string
 	uiDomain     string
 	balancer     *Balancer
-	tracker      *client.TrafficTracker
+	tracker      *traffic.TrafficTracker
 	tunnels      map[string]*SshTunnel
 	tunnelErrors map[string]error
 }
@@ -247,20 +248,20 @@ func (session Session) Error(err string) {
 	fmt.Fprintf(session, "\u001b[31m%s\u001B[0m\n", err)
 }
 
-func NewSshForwardServer(balancer *Balancer, tracker *client.TrafficTracker, port uint32, privateKey string, uiDomain string) *SSHForwardServer {
+func NewSshForwardServer(balancer *Balancer, port uint32, privateKey string, uiDomain string) *SSHForwardServer {
 	return &SSHForwardServer{
 		port:         port,
 		privateKey:   privateKey,
 		uiDomain:     uiDomain,
 		balancer:     balancer,
-		tracker:      tracker,
+		tracker:      service.TrafficTracker(),
 		tunnels:      make(map[string]*SshTunnel),
 		tunnelErrors: make(map[string]error),
 	}
 }
 
 func tunnelEstablishedSshMessage(session ssh.Session, proxy *Proxy, uiWebHost string) {
-	fmt.Fprintf(session, "\u001b[32mYou proxy has been established:\u001b[0m\n")
+	fmt.Fprintf(session, "\u001b[32mYour proxy has been established:\u001b[0m\n")
 	fmt.Fprintf(session, "Proxy:\t\t%s\n", proxy.Host())
 	fmt.Fprintf(session, "Web ui:\t\thttp://%s/%s?token=%s\n\n", uiWebHost, proxy.Domain, proxy.Tunnel.sessionId)
 }

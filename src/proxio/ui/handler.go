@@ -10,9 +10,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"proxio/client"
 	"proxio/repository"
+	"proxio/service"
 	"proxio/ssh"
+	"proxio/traffic"
 )
 
 type contextKey struct {
@@ -25,7 +26,9 @@ var (
 )
 
 // This will check authentication header and attach session object if user authenticated
-func NewSessionMiddleware(sessions repository.Sessions) mux.MiddlewareFunc {
+func NewSessionMiddleware() mux.MiddlewareFunc {
+	sessions := service.Session()
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer next.ServeHTTP(w, r)
@@ -69,14 +72,11 @@ func NewDomainPermissionMiddleware(balancer *ssh.Balancer) mux.MiddlewareFunc {
 }
 
 // Traffic request handler
-func NewTrafficRequestHandler(storage *Storage) *TrafficRequestHandler {
-	return &TrafficRequestHandler{
-		Storage: storage,
-	}
+func NewTrafficRequestHandler() *TrafficRequestHandler {
+	return &TrafficRequestHandler{}
 }
 
 type TrafficRequestHandler struct {
-	Storage *Storage
 }
 
 func (c *TrafficRequestHandler) domainTraffic(w http.ResponseWriter, r *http.Request) {
@@ -84,9 +84,9 @@ func (c *TrafficRequestHandler) domainTraffic(w http.ResponseWriter, r *http.Req
 	if domain == "" {
 		http.Error(w, "Domain not provided", 400)
 	}
-	messages := c.Storage.All(domain)
+	messages := service.TrafficStorage().All(domain)
 
-	response := make([]*client.MessageContent, len(messages))
+	response := make([]*traffic.MessageContent, len(messages))
 
 	for i, m := range messages {
 		response[i] = m.GetContext()
@@ -101,7 +101,7 @@ func (c *TrafficRequestHandler) domainTraffic(w http.ResponseWriter, r *http.Req
 }
 
 func (c *TrafficRequestHandler) clear(w http.ResponseWriter, r *http.Request) {
-	c.Storage.RemoveAll("")
+	service.TrafficStorage().RemoveAll("")
 }
 
 func (c *TrafficRequestHandler) session(w http.ResponseWriter, r *http.Request) {
@@ -120,15 +120,17 @@ func (c *TrafficRequestHandler) session(w http.ResponseWriter, r *http.Request) 
 }
 
 // Websocket handler
-func NewWsHandler(connectionPool *Pool) http.Handler {
+func NewWsHandler() http.Handler {
+	connPool := service.WsConnectionPool()
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		connection := serveWs(w, r, connectionPool.closeChan)
+		connection := serveWs(w, r, connPool.CloseChan)
 
 		domain := r.URL.Query().Get("domain")
 		if domain == "" {
 			http.Error(w, "Domain not provided", 400)
 		}
-		connectionPool.NewConnection(domain, connection)
+		connPool.NewConnection(domain, connection)
 	})
 }
 

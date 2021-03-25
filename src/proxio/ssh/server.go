@@ -4,10 +4,10 @@ import (
 	"net/http"
 )
 
-func NewHttpServer(clientTrafficHandler, monitoringHandler http.Handler, host, monitoringDomain string) *http.Server {
+func NewHttpServer(clientTrafficHandler, uiHandler http.Handler, host, monitoringDomain string) *http.Server {
 	splitHandler := SubDomainMiddleware(
 		clientTrafficHandler,
-		monitoringHandler,
+		uiHandler,
 		host,
 		monitoringDomain,
 	)

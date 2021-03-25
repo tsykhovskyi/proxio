@@ -1,21 +1,19 @@
-package ui
-
-import "proxio/client"
+package traffic
 
 func NewStorage() *Storage {
 	return &Storage{
-		domains: make(map[string][]*client.Message),
+		domains: make(map[string][]*Message),
 	}
 }
 
 type Storage struct {
-	domains map[string][]*client.Message
+	domains map[string][]*Message
 }
 
-func (s *Storage) Add(m *client.Message) {
+func (s *Storage) Add(m *Message) {
 	messages, ok := s.domains[m.Request.Host]
 	if !ok {
-		s.domains[m.Request.Host] = make([]*client.Message, 0)
+		s.domains[m.Request.Host] = make([]*Message, 0)
 		messages = s.domains[m.Request.Host]
 	}
 
@@ -26,7 +24,7 @@ func (s *Storage) Add(m *client.Message) {
 	}
 }
 
-func (s *Storage) All(domain string) []*client.Message {
+func (s *Storage) All(domain string) []*Message {
 	return s.domains[domain]
 }
 
