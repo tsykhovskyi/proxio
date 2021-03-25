@@ -138,7 +138,7 @@ func NewSpaHandler() http.Handler {
 	if err != nil {
 		panic(err)
 	}
-	return spaHandler{staticPath: wd + "/ui/web", indexPath: "index.html"}
+	return spaHandler{staticPath: wd + "/../telemetry/dist/telemetry", indexPath: "index.html"}
 }
 
 type spaHandler struct {
@@ -155,7 +155,8 @@ func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path = filepath.Join(h.staticPath, path)
 	_, err = os.Stat(path)
 	if os.IsNotExist(err) {
-		http.ServeFile(w, r, filepath.Join(h.staticPath, h.indexPath))
+		indexFullPath := filepath.Join(h.staticPath, h.indexPath)
+		http.ServeFile(w, r, indexFullPath)
 		return
 	} else if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

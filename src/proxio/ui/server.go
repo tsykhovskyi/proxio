@@ -28,8 +28,8 @@ func Handler(traffic client.Traffic, sessions repository.Sessions, balancer *ssh
 	domain.HandleFunc("/clear", ctr.clear)
 	domain.HandleFunc("/m", ctr.domainTraffic)
 	domain.Handle("/ws", NewWsHandler(connectionPool))
-	// r.PathPrefix("/").Handler(NewSpaHandler())
-	r.PathPrefix("/").Handler(NewProxyHandler("http://localhost:4200"))
+	r.PathPrefix("/").Handler(NewSpaHandler())
+	// r.PathPrefix("/").Handler(NewProxyHandler("http://localhost:4200"))
 
 	r.Use(NewSessionMiddleware(sessions))
 	domain.Use(NewDomainPermissionMiddleware(balancer))
