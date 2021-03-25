@@ -4,4 +4,5 @@ run-ssh-server:
 build-ssh-server:
 	cd src/proxio && go build -o ../../bin/proxio ./cmd/server/server.go
 ui:
-	cd src/telemetry && npm install && ng build
+	git submodule update --remote
+	cd src/telemetry && npm ci && ng build
