@@ -11,6 +11,6 @@ require (
 	github.com/gorilla/context v1.1.1
 	github.com/gorilla/mux v1.7.4
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
-	golang.org/x/sys v0.0.0-20200802091954-4b90ce9b60b3 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	gopkg.in/yaml.v2 v2.2.8
 )
